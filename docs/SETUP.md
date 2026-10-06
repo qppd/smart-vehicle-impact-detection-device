@@ -161,6 +161,7 @@ Required considerations:
 - XL6009E1 / LM2577 boost to 5.0 V
 - Boost output to ESP32 VIN
 - SIM808 powered from battery (3.5–4.2 V)
+- 1000µF 25V electrolytic capacitor across SIM808 BAT+/BAT- to smooth 2A TX bursts
 - Verify before connecting: polarity, voltage, ground common
 
 ### 1.13 Engineering Standards
@@ -214,6 +215,9 @@ Required considerations:
    - *Alternative:* Connect after switch if you want SIM808 to power off with main switch.
    - *Recommendation:* Connect before switch so SIM808 can operate during charging (if desired).
 3. Use 18-20 AWG wire.
+4. **Install 1000µF 25V capacitor** across BAT+ and BAT- at SIM808 terminals:
+   - Positive lead to BAT+, negative lead to BAT-
+   - This suppresses voltage droop during 2A TX bursts
 
 #### Step 7: Connect TP4056 for Charging
 1. Connect battery pack BAT+ to TP4056 BAT+ (red wire).

@@ -59,4 +59,5 @@ POWER ON → INIT → CHECK MPU6050 → CHECK SIM808 → NORMAL MONITORING (GREE
 - Li-Po batteries: verify matched pairs before paralleling
 - Boost converter: measure output before connecting ESP32
 - SIM808: transmit current bursts up to ~2 A — ensure power path can handle it
+- SIM808: install 1000µF 25V capacitor at power input to smooth voltage drops during TX bursts
 - TP4056: charger only, NOT a 5 V regulator

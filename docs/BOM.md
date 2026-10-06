@@ -23,6 +23,7 @@
 | 14 | IP65 ABS Enclosure | 1 | 160 × 160 × 90 mm, transparent lid | Weatherproof housing | [Lazada - Enclosure](https://www.lazada.com.ph/products/weatherproof-enclosure-ip65-nema-4-abs-transparent-lid-i2906352389-s15191892279.html) |
 | 15 | Dupont Wire Kit | 1 | Assorted | Prototyping only | [Lazada - Dupont Kit](https://www.lazada.com.ph/products/pdp-i2658568071-s12646800983.html) |
 | 16 | TNT SIM Card | 1 | Registered | GSM/SMS testing | (User supplied) |
+| 17 | Electrolytic Capacitor 1000µF 25V | 1 | Low ESR preferred, 25V min | SIM808 input decoupling (smooths 2A TX bursts) | [Lazada - 1000uF 25V](https://www.lazada.com.ph/products/pdp-i4246157653-s23691141314.html) |
 
 ---
 
@@ -119,6 +120,7 @@
 | Boost converter max current | Module label / datasheet |
 | Buzzer type & voltage | Active vs passive, 3.3V vs 5V |
 | SIM808 antenna connectors | SMA / U.FL / onboard |
+| 1000µF capacitor polarity | BAT+ = positive, BAT- = negative |
 | TP4056 charge current resistor | Actual charge current |
 | Li-Po cell protection | Protected vs bare cells |
 | Grove LED pinout | Signal pin position |
