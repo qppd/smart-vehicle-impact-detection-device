@@ -44,16 +44,6 @@ POWER ON → INIT → CHECK MPU6050 → CHECK SIM808 → NORMAL MONITORING (GREE
 
 ---
 
-## Critical Anti-Hallucination Rules
-
-- No invented GPIO pins — all marked TBD until verified against actual board
-- No invented component models — generic where exact part unverified
-- No assumed 5 V tolerance — verify before connecting
-- No cloud/EMS integration claimed — SMS only via SIM808
-- No voice/push-button in Phase 1
-
----
-
 ## Safety Notes
 
 - Li-Po batteries: verify matched pairs before paralleling
