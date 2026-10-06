@@ -1,0 +1,36 @@
+# Build artifacts
+build/
+.pio/
+.vscode/
+.idea/
+
+# Firmware binaries
+*.bin
+*.elf
+*.hex
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Environment / secrets
+.env
+.env.local
+*.key
+*.pem
+
+# Serial monitor logs
+*.log
+
+# PlatformIO
+platformio.ini.bak
+
+# Local URLs
+urls.txt
+
