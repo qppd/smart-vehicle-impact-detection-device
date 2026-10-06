@@ -29,6 +29,7 @@ graph TB
         BAT["Li-Po Pack<br/>1S2P 3.7V 4000mAh"]
         BOOST["Boost Converter<br/>3.7V → 5V"]
         TP4056["TP4056 Charger<br/>USB-C"]
+        CAP["1000µF 25V Capacitor<br/>(Decoupling)"]
     end
 
     MPU6050 -- "I²C" --> ESP32
@@ -38,7 +39,8 @@ graph TB
     BUZZ --> ESP32
     BAT --> BOOST
     BAT --> TP4056
-    BAT --> SIM808
+    BAT --> CAP
+    CAP --> SIM808
     BOOST --> ESP32
     TP4056 -. "Charging only" .-> BAT
 ```
@@ -55,12 +57,15 @@ graph TB
     TP4056["TP4056<br/>USB-C Charger"]
     ESP32["ESP32 VIN<br/>5V"]
     SIM808["SIM808<br/>BAT+"]
+    CAP["1000µF 25V Capacitor<br/>(Decoupling)"]
 
     BAT --> SW
     SW --> BOOST
     SW --> SIM808
     SW --> TP4056
     BOOST --> ESP32
+    BAT --> CAP
+    CAP --> SIM808
     TP4056 -. "Charging" .-> BAT
 ```
 
@@ -148,6 +153,7 @@ graph TB
         BOOST["Boost Converter"]
         TP4056["TP4056"]
         BAT["Battery Pack"]
+        CAP["1000µF Decoupling Cap"]
     end
 
     subgraph BACK["BACK PANEL"]
@@ -159,6 +165,8 @@ graph TB
     GPS_ANT --> SIM808
     GSM_ANT --> SIM808
     BAT --> SIM808
+    BAT --> CAP
+    CAP --> SIM808
     BAT --> BOOST
     BAT --> TP4056
     BOOST --> ESP32

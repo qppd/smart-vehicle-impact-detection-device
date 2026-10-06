@@ -137,15 +137,17 @@ graph LR
 
 | # | FROM | TO | WIRE | VOLTAGE | PURPOSE | NOTES |
 |---|------|----|------|---------|---------|-------|
-| P1 | Li-Po Pack BAT+ | SIM808 BAT+ | 18 AWG red | 3.5–4.2V | Power SIM808 | |
-| P2 | Li-Po Pack BAT- | SIM808 BAT- | 18 AWG black | 0V | Ground for SIM808 | |
-| P3 | Li-Po Pack BAT+ | TP4056 BAT+ | 18 AWG red | 3.5–4.2V | Charging input | |
-| P4 | Li-Po Pack BAT- | TP4056 BAT- | 18 AWG black | 0V | Ground for TP4056 | |
-| P5 | Li-Po Pack BAT+ | Boost VIN | 18 AWG red | 3.5–4.2V | Boost input | |
-| P6 | Li-Po Pack BAT- | Boost GND | 18 AWG black | 0V | Boost ground | |
-| P7 | Boost VOUT | ESP32 VIN | 20 AWG red | 5.0V set | ESP32 power | **Measure before connecting** |
-| P8 | Boost GND | ESP32 GND | 20 AWG black | 0V | ESP32 ground | |
-| P9 | Main Switch | Battery BAT+ | 18 AWG red | 3.7V | Switch positive line | |
+|| P1 | Li-Po Pack BAT+ | SIM808 BAT+ | 18 AWG red | 3.5–4.2V | Power SIM808 | Add 1000µF cap at SIM808 end |
+|| P2 | Li-Po Pack BAT- | SIM808 BAT- | 18 AWG black | 0V | Ground for SIM808 | |
+|| P3 | Li-Po Pack BAT+ | TP4056 BAT+ | 18 AWG red | 3.5–4.2V | Charging input | |
+|| P4 | Li-Po Pack BAT- | TP4056 BAT- | 18 AWG black | 0V | Ground for TP4056 | |
+|| P5 | Li-Po Pack BAT+ | Boost VIN | 18 AWG red | 3.5–4.2V | Boost input | |
+|| P6 | Li-Po Pack BAT- | Boost GND | 18 AWG black | 0V | Boost ground | |
+|| P7 | Boost VOUT | ESP32 VIN | 20 AWG red | 5.0V set | ESP32 power | **Measure before connecting** |
+|| P8 | Boost GND | ESP32 GND | 20 AWG black | 0V | ESP32 ground | |
+|| P9 | Main Switch | Battery BAT+ | 18 AWG red | 3.7V | Switch positive line | |
+|| P10 | 1000µF 25V Cap + | SIM808 BAT+ | Short red wire | 3.5–4.2V | Capacitor positive | Low ESR preferred |
+|| P11 | 1000µF 25V Cap - | SIM808 BAT- | Short black wire | 0V | Capacitor negative | Across power input |
 
 #### ESP32–MPU6050 I²C
 

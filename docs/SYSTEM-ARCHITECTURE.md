@@ -173,6 +173,8 @@ graph TB
     SW --> TP4056["TP4056 BAT+"]
     BOOST --> ESP32["ESP32 VIN"]
     TP4056 --> CHG["USB-C Charging"]
+    BAT --> CAP["1000µF 25V Capacitor<br/>(Decoupling)"]
+    CAP --> SIM808
 ```
 
 ---
