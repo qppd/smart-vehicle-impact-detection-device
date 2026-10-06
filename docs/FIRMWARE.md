@@ -29,7 +29,7 @@ Copy the following into your Arduino IDE project. All code is in a single file f
 #define PIN_SIM808_TXD        17   // ESP32 UART2 TX (connects to SIM808 RXD)
 #define PIN_GREEN_LED         18
 #define PIN_RED_LED           19
-#define PIN_BUZZER            23
+#define PIN_BUZZER            25
 
 // MPU6050 Settings
 #define MPU6050_ADDR          0x68
@@ -47,6 +47,7 @@ Copy the following into your Arduino IDE project. All code is in a single file f
 #define GPS_TIMEOUT_MS          30000  // 30 seconds for GPS fix
 #define SMS_TIMEOUT_MS          10000  // 10 seconds for SMS response
 #define SMS_RETRY_COUNT         3
+#define UNDERVOLTAGE_MV         3000   // Minimum battery voltage (3.0V)
 
 // Emergency SMS
 #define EMS_PHONE_NUMBER      "+63XXXXXXXXXX"  // <-- USER MUST CONFIGURE!
@@ -440,10 +441,16 @@ void readMPU6050() {
     accelData.x = ax / MPU6050_ACCEL_LSB_G;
     accelData.y = ay / MPU6050_ACCEL_LSB_G;
     accelData.z = az / MPU6050_ACCEL_LSB_G;
-    
-    accelData.magnitude = sqrt(accelData.x * accelData.x + 
-                                    accelData.y * accelData.y + 
-                                    accelData.z * accelData.z);
+
+    // Apply bias correction (set during calibration at boot)
+    if (biasCalibrated) {
+      accelData.x -= accelBias[0];
+      accelData.y -= accelBias[1];
+      accelData.z -= accelBias[2];
+    }
+
+    accelData.magnitude = sqrt(pow(accelData.x, 2) + pow(accelData.y, 2) + pow(accelData.z, 2));
+    accelData.dynamicMagnitude = fabs(accelData.magnitude - 1.0);
   }
 }
 
@@ -451,7 +458,7 @@ void calibrateBias() {
   Serial.println("[CALIB] Calibrating bias (keep device still)...");
   float sumX = 0, sumY = 0, sumZ = 0;
   int samples = 100;
-  
+
   for (int i = 0; i < samples; i++) {
     readMPU6050();
     sumX += accelData.x;
@@ -459,13 +466,13 @@ void calibrateBias() {
     sumZ += accelData.z;
     delay(10);
   }
-  
+
   accelBias[0] = sumX / samples;
   accelBias[1] = sumY / samples;
   accelBias[2] = sumZ / samples;
   biasCalibrated = true;
-  
-  Serial.printf("[CALIB] Bias: X=%.3f Y=%.3f Z=%.3f\n", 
+
+  Serial.printf("[CALIB] Bias: X=%.3f Y=%.3f Z=%.3f\n",
                  accelBias[0], accelBias[1], accelBias[2]);
 }
 
@@ -474,9 +481,10 @@ bool detectImpact() {
     impactConsecutiveCount = 0;
     return false;
   }
-  
-  float dynamicMag = fabs(accelData.magnitude - 1.0);
-  
+
+  // dynamicMagnitude already computed in readMPU6050() with bias correction
+  float dynamicMag = accelData.dynamicMagnitude;
+
   if (dynamicMag > IMPACT_THRESHOLD_G) {
     impactConsecutiveCount++;
     if (impactConsecutiveCount >= IMPACT_PERSISTENCE) {
@@ -620,6 +628,10 @@ bool sendEmergencySMS(float lat, float lon, bool gpsAvail) {
     message += "Please check the vehicle/occupant immediately.";
   }
   
+  // Truncate message to fit SMS limit (160 chars max)
+  if (message.length() > SMS_MAX_LENGTH) {
+    message = message.substring(0, SMS_MAX_LENGTH - 3) + "...";
+  }
   sim808Serial.print(message);
   sim808Serial.write(26);  // Ctrl+Z
   

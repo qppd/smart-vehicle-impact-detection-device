@@ -29,8 +29,8 @@ flowchart TD
     E8 --> E9["E9: Ground <0.1Ω"]
     E9 --> E10["E10: Polarity correct"]
     E10 --> E11["E11: Switch function"]
-    E11 --> ALLPASS["✅ ALL PASS"]
-    E11 --> FAIL["❌ FAIL → Fix"]
+    E11 --> ALLPASS["PASS ALL PASS"]
+    E11 --> FAIL["FAIL FAIL → Fix"]
     FAIL --> E1
 ```
 
@@ -60,10 +60,10 @@ flowchart LR
     GREEN -->|YES| RED["Red LED blinks?"]
     RED -->|NO| CHECK_RED["Check GPIO19 wiring"]
     RED -->|YES| BUZZ["Buzzer beeps?"]
-    BUZZ -->|NO| CHECK_BUZZ["Check GPIO23 wiring"]
+    BUZZ -->|NO| CHECK_BUZZ["Check GPIO25 wiring"]
     BUZZ -->|YES| SERIAL["Serial monitor prints?"]
     SERIAL -->|NO| CHECK_SERIAL["Check USB-UART"]
-    SERIAL -->|YES| ESP32_OK["✅ ESP32 OK"]
+    SERIAL -->|YES| ESP32_OK["PASS ESP32 OK"]
 ```
 
 - Upload blink sketch to all configured GPIOs
@@ -82,7 +82,7 @@ flowchart LR
     CHANGES -->|NO| CHECK_MPU["Check wiring/power"]
     CHANGES -->|YES| REST["At rest ~1g on Z?"]
     REST -->|NO| CALIB["Calibrate bias"]
-    REST -->|YES| MPU6050_OK["✅ MPU6050 OK"]
+    REST -->|YES| MPU6050_OK["PASS MPU6050 OK"]
 ```
 
 - Upload I²C scanner + accelerometer read sketch
@@ -97,7 +97,7 @@ flowchart LR
     AT["AT → OK"] --> CPIN["AT+CPIN? → READY"]
     CPIN --> CREG["AT+CREG? → registered"]
     CREG --> CSQ["AT+CSQ → signal strength"]
-    CSQ --> SIM808_OK["✅ SIM808 OK"]
+    CSQ --> SIM808_OK["PASS SIM808 OK"]
 ```
 
 - Send AT commands: `AT` → `OK`, `AT+CPIN?` → `READY`, `AT+CREG?` → registered
@@ -110,7 +110,7 @@ flowchart LR
     CMGS --> MSG["Type 'Test' + Ctrl+Z"]
     MSG --> CHECK["Check phone for SMS"]
     CHECK -->|NO| FIX["Check network/SIM"]
-    CHECK -->|YES| SMS_OK["✅ SMS OK"]
+    CHECK -->|YES| SMS_OK["PASS SMS OK"]
 ```
 
 - `AT+CMGF=1` → OK
@@ -125,7 +125,7 @@ flowchart LR
     WAIT --> INF["AT+CGNSINF"]
     INF --> FIX{"Fix status = 1?"}
     FIX -->|NO| ANT["Check antenna/sky view"]
-    FIX -->|YES| GPS_OK["✅ GPS OK"]
+    FIX -->|YES| GPS_OK["PASS GPS OK"]
 ```
 
 - `AT+CGNSPWR=1` → OK
@@ -147,7 +147,7 @@ flowchart TD
     SMS --> RECIPIENT["📱 Recipient receives SMS"]
     RECIPIENT --> FORMAT{"Format correct?"}
     FORMAT -->|NO| FIX_SMS["Fix SMS template"]
-    FORMAT -->|YES| T1["✅ T1: Normal monitoring"]
+    FORMAT -->|YES| T1["PASS T1: Normal monitoring"]
     T1 --> T2["T2: Impact detection"]
     T2 --> T3["T3: 15s countdown"]
     T3 --> T4["T4: GPS acquisition"]

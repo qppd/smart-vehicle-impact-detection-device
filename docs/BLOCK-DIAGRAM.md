@@ -120,7 +120,7 @@ graph TB
     UART -- "TXD/RXD<br/>GPIO16/17" --> SIM808["SIM808"]
     ESP32 -- "GPIO18" --> GREEN["Green LED"]
     ESP32 -- "GPIO19" --> RED["Red LED"]
-    ESP32 -- "GPIO23" --> BUZZ["Buzzer"]
+    ESP32 -- "GPIO25" --> BUZZ["Buzzer"]
 
     subgraph NOTES["NOTES"]
         VMCU["VMCU = 3.3V"]

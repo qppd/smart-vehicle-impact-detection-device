@@ -24,6 +24,7 @@
 | 15 | Dupont Wire Kit | 1 | Assorted | Prototyping only | [Lazada - Dupont Kit](https://www.lazada.com.ph/products/pdp-i2658568071-s12646800983.html) |
 | 16 | TNT SIM Card | 1 | Registered | GSM/SMS testing | (User supplied) |
 | 17 | Electrolytic Capacitor 1000µF 25V | 1 | Low ESR preferred, 25V min | SIM808 input decoupling (smooths 2A TX bursts) | [Lazada - 1000uF 25V](https://www.lazada.com.ph/products/pdp-i4246157653-s23691141314.html) |
+| 18 | Resettable Fuse 3A | 1 | 3A hold, auto-recover | Battery positive line protection | TBD |
 
 ---
 
@@ -70,11 +71,14 @@
 
 #### Li-Po Battery (2× 3.7V 2000 mAh)
 - **Configuration:** PARALLEL / 1S2P
-- **Nominal:** 3.7V
-- **Full charge:** 4.2V
-- **Total capacity:** ~4000 mAh
+- **Nominal voltage:** 3.7V (typical operating point)
+- **Full charge voltage:** 4.2V (per cell)
+- **Minimum safe discharge voltage:** 3.0V per cell (do not discharge below this)
+- **Cut-off voltage (recommended):** 3.2V (protects cell longevity)
+- **Total capacity:** ~4000 mAh (parallel connection)
 - **⚠️ Safety:** Must verify voltage match (<0.1V diff) before paralleling
 - **⚠️ Protection:** Each cell must have protection circuit or use protected cells
+- **⚠️ Warning:** Do not exceed 4.2V per cell during charging; overcharge causes fire
 
 #### TP4056 USB-C Charger/Protection
 - **Input:** 5V USB-C, ~1A charge current
@@ -120,7 +124,8 @@
 | Boost converter max current | Module label / datasheet |
 | Buzzer type & voltage | Active vs passive, 3.3V vs 5V |
 | SIM808 antenna connectors | SMA / U.FL / onboard |
-| 1000µF capacitor polarity | BAT+ = positive, BAT- = negative |
+|| 1000µF capacitor polarity | BAT+ = positive, BAT- = negative |
+| Resettable fuse | Rating, hold current, trip time |
 | TP4056 charge current resistor | Actual charge current |
 | Li-Po cell protection | Protected vs bare cells |
 | Grove LED pinout | Signal pin position |

@@ -105,7 +105,7 @@ graph TB
 #define PIN_SIM808_TXD        17   // ESP32 UART2 TX
 #define PIN_GREEN_LED         18
 #define PIN_RED_LED           19
-#define PIN_BUZZER            23
+#define PIN_BUZZER            25
 
 // MPU6050 Settings
 #define MPU6050_ADDR          0x68
@@ -267,7 +267,7 @@ Location: GPS UNAVAILABLE (no fix)
 graph LR
     GREEN["🟢 Green LED<br/>GPIO18"] --> MONITOR["MONITORING"]
     RED["🔴 Red LED<br/>GPIO19"] --> IMPACT["IMPACT/EMERGENCY"]
-    BUZZ["🔊 Buzzer<br/>GPIO23"] --> PATTERN["Patterns"]
+    BUZZ["🔊 Buzzer<br/>GPIO25"] --> PATTERN["Patterns"]
 
     PATTERN --> P1["Pattern 1<br/>Impact warning"]
     PATTERN --> P2["Pattern 2<br/>Confirmation"]
@@ -278,7 +278,7 @@ graph LR
 |------------|------|----------|
 | Green LED | GPIO18 | ON = MONITORING |
 | Red LED | GPIO19 | ON = IMPACT/EMERGENCY |
-| Buzzer | GPIO23 | Active HIGH; patterns: 1=warning, 2=confirm, 3=emergency |
+| Buzzer | GPIO25 | Active HIGH; patterns: 1=warning, 2=confirm, 3=emergency |
 
 **Buzzer Patterns:**
 - Pattern 1 (impact warning): Single 100ms beep

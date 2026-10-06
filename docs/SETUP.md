@@ -175,7 +175,7 @@ Required considerations:
 
 ---
 
-### 1.3 Hardware Assembly (from 13_HARDWARE_ASSEMBLY.md)
+### 1.14 Hardware Assembly (from 13_HARDWARE_ASSEMBLY.md)
 
 #### Step 1: Prepare Li-Po Battery Pack
 1. Verify both batteries are 3.7V nominal and voltage-matched (<0.1V diff).
@@ -249,7 +249,7 @@ Required considerations:
    - VCC to ESP32 3.3V (red wire)
    - GND to ESP32 GND (black wire)
 3. **Buzzer:**
-   - SIG to ESP32 GPIO23 (blue wire)
+   - SIG to ESP32 GPIO25 (blue wire)
    - VCC to ESP32 3.3V (red wire) [if buzzer needs separate power]
    - GND to ESP32 GND (black wire)
    - *Note:* Some buzzers are powered directly from the signal pin.
@@ -272,7 +272,7 @@ Required considerations:
 
 ---
 
-### 1.4 Enclosure Layout (from 14_ENCLOSURE_LAYOUT.md)
+### 1.15 Enclosure Layout (from 14_ENCLOSURE_LAYOUT.md)
 
 #### 14.1 Enclosure Specifications
 
@@ -538,7 +538,7 @@ Reserve space for:
 
 ---
 
-### 1.5 Chapter 1–3 Prototype Guide (from 17_CHAPTER_1_TO_3_PROTOTYPE_GUIDE.md)
+### 1.16 Chapter 1–3 Prototype Guide (from 17_CHAPTER_1_TO_3_PROTOTYPE_GUIDE.md)
 
 #### 17.1 Purpose
 
@@ -674,7 +674,7 @@ Show the physical prototype:
 5. **GPS antenna** (top of enclosure)
 6. **GSM antenna** (side of enclosure)
 7. **USB-C ports** (ESP32 programming + TP4056 charging)
-7. **Internal components:**
+8. **Internal components:**
    - ESP32 38-pin dev board
    - MPU6050 breakout
    - SIM808 module
@@ -733,7 +733,7 @@ Show calibration data:
 
 ---
 
-### 1.6 Final Build Checklist (from 19_FINAL_BUILD_CHECKLIST.md)
+### 1.17 Final Build Checklist (from 19_FINAL_BUILD_CHECKLIST.md)
 
 #### 19.1 Hardware Checklist
 
@@ -795,7 +795,7 @@ Show calibration data:
 | W18 | ESP32 GPIO19 → Red LED SIG | ☐ | _____ |
 | W19 | ESP32 3.3V → Red LED VCC | ☐ | _____ |
 | W20 | ESP32 GND → Red LED GND | ☐ | _____ |
-| W21 | ESP32 GPIO23 → Buzzer SIG | ☐ | _____ |
+| W21 | ESP32 GPIO25 → Buzzer SIG | ☐ | _____ |
 | W22 | ESP32 3.3V → Buzzer VCC (if needed) | ☐ | _____ |
 | W23 | ESP32 GND → Buzzer GND | ☐ | _____ |
 
@@ -919,7 +919,7 @@ ________________________________________________________________
 |-----------|-------|----------|
 | ESP32 GPIO (SDA/SCL) | 21 / 22 | config.h |
 | ESP32 GPIO (UART2 RX/TX) | 16 / 17 | config.h |
-| ESP32 GPIO (Green/Red/Buzzer) | 18 / 19 / 23 | config.h |
+| ESP32 GPIO (Green/Red/Buzzer) | 18 / 19 / 25 | config.h |
 | IMPACT_THRESHOLD_G | _______ g | config.h (calibrated) |
 | IMPACT_PERSISTENCE | 3 samples | config.h |
 | IMPACT_COOLDOWN_MS | 3000 ms | config.h |
@@ -932,9 +932,9 @@ ________________________________________________________________
 
 #### 19.12 First Test to Perform After Assembly
 
-**Electrical Tests (E1-E11)** (Section 15.2) before any firmware upload.
+**Electrical Tests (E1-E11)** (Section 9.2) before any firmware upload.
 
-**Then:** Upload calibration sketch (Section 12.3) → Record stationary data → Verify MPU6050 reads ~1g on one axis.
+**Then:** Upload calibration sketch (Section 9.5) → Record stationary data → Verify MPU6050 reads ~1g on one axis.
 
 **Then:** Upload full firmware → Open serial monitor → Power on → Verify state sequence: BOOT → SELF_TEST → MONITORING → Green LED ON.
 

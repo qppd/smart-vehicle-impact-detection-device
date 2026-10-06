@@ -126,7 +126,7 @@ graph TB
     UART -- "TXD/RXD" --> SIM808["SIM808"]
     ESP32_GPIO -- "GPIO18" --> GREEN["Green LED"]
     ESP32_GPIO -- "GPIO19" --> RED["Red LED"]
-    ESP32_GPIO -- "GPIO23" --> BUZZ["Buzzer"]
+    ESP32_GPIO -- "GPIO25" --> BUZZ["Buzzer"]
 ```
 
 ---

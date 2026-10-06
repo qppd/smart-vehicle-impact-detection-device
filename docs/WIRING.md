@@ -3,7 +3,18 @@
 
 ---
 
-### 6.1 Pin Assignment
+### 6.1 Circuit Diagrams
+
+<!-- Wiring Image -->
+![Wiring Diagram](../wiring/circuit_image.png)
+
+**Circuit file:** [smart-vehicle-impact-detection-device.ckt](../wiring/smart-vehicle-impact-detection-device.ckt)
+
+**Interactive wiring diagram:** [View on CirKit Designer](https://app.cirkitdesigner.com/project/2e962a5d-9e84-46b6-87e7-2afaff00305b)
+
+---
+
+### 6.2 Pin Assignment
 
 ```mermaid
 graph LR
@@ -20,7 +31,7 @@ graph LR
     ESP32 -- "GPIO17 TX2" --> SIM808_RX["SIM808 RXD"]
     ESP32 -- "GPIO18" --> GREEN
     ESP32 -- "GPIO19" --> RED
-    ESP32 -- "GPIO23" --> BUZZ
+    ESP32 -- "GPIO25" --> BUZZ
 
     subgraph NOTES["NOTES"]
         VMCU["VMCU = 3.3V"]
@@ -37,26 +48,26 @@ graph LR
 |  | RXD (module RX ← ESP32 TX) | GPIO17 | UART2_TX |
 | **Green LED** | Signal | GPIO18 | Output — ON = normal monitoring |
 | **Red LED** | Signal | GPIO19 | Output — ON = impact detected / emergency |
-| **Buzzer** | Signal | GPIO23 | Output — active buzzer (HIGH = tone) |
+| **Buzzer** | Signal | GPIO25 | Output — active buzzer (HIGH = tone) |
 | **Main Switch** | Power | N/A | Hardware switch on main positive line |
 
-**⚠️ VERIFY:** These GPIO numbers are for a generic ESP32 38-pin board. You MUST verify the exact pinout of your ESP32 board before finalizing connections.
+**[WARNING] VERIFY:** These GPIO numbers are for a generic ESP32 38-pin board. You MUST verify the exact pinout of your ESP32 board before finalizing connections.
 
-**⚠️ WROVER WARNING:** If your ESP32 module is WROVER (has PSRAM), GPIO16 and GPIO17 are internally bonded to the PSRAM chip and NOT available externally. Use alternate UART2 pins (e.g., GPIO25/26) or switch to a WROOM module.
+**[WARNING] WROVER WARNING:** If your ESP32 module is WROVER (has PSRAM), GPIO16 and GPIO17 are internally bonded to the PSRAM chip and NOT available externally. Use alternate UART2 pins (e.g., GPIO25/26) or switch to a WROOM module.
 
 ---
 
-### 6.2 UART Selection Rationale
+### 6.3 UART Selection Rationale
 
 ```mermaid
 graph TB
     UART0["UART0 GPIO1, GPIO3"]
     UART1["UART1 GPIO9, GPIO10"]
-    UART2["UART2 GPIO16, GPIO17 ✅ RECOMMENDED"]
+    UART2["UART2 GPIO16, GPIO17 [RECOMMENDED]"]
 
-    UART0 -->|"USB-Serial<br/>Programming"| AVOID["❌ AVOID"]
+    UART0 -->|"USB-Serial<br/>Programming"| AVOID["[AVOID]"]
     UART1 -->|"Flash chip<br/>ESP32-WROOM"| AVOID
-    UART2 -->|"Free on most<br/>dev boards"| USE["✅ USE"]
+    UART2 -->|"Free on most<br/>dev boards"| USE["[USE]"]
 ```
 
 - **UART0 (GPIO1, GPIO3):** Reserved for USB-to-UART programming — avoid.
@@ -66,7 +77,7 @@ graph TB
 
 ---
 
-### 6.3 Power Wiring
+### 6.4 Power Wiring
 
 ```mermaid
 graph TB
@@ -87,7 +98,7 @@ graph TB
 
 ---
 
-### 6.4 Complete Connection Table
+### 6.5 Complete Connection Table
 
 ```mermaid
 graph LR
@@ -127,7 +138,7 @@ graph LR
     end
 
     subgraph BUZZ["BUZZER"]
-        B1["GPIO23 → Buzzer SIG"]
+        B1["GPIO25 → Buzzer SIG"]
         B2["3.3V → Buzzer VCC"]
         B3["GND → Buzzer GND"]
     end
@@ -182,13 +193,13 @@ graph LR
 
 | # | FROM | TO | WIRE | VOLTAGE | PURPOSE | NOTES |
 |---|------|----|------|---------|---------|-------|
-| BZ1 | ESP32 GPIO23 | Buzzer SIG | 22 AWG blue | 3.3V | Buzzer control | **Verify buzzer type** |
+|| BZ1 | ESP32 GPIO25 | Buzzer SIG | 22 AWG blue | 3.3V | Buzzer control | **Verify buzzer type** |
 | BZ2 | ESP32 3.3V | Buzzer VCC | 22 AWG red | 3.3V | Buzzer power | |
 | BZ3 | ESP32 GND | Buzzer GND | 22 AWG black | 0V | Buzzer ground | |
 
 ---
 
-### 6.5 Wire Gauge Guide
+### 6.6 Wire Gauge Guide
 
 ```mermaid
 graph LR
@@ -224,30 +235,30 @@ graph LR
 
 ---
 
-### 6.6 Voltage Compatibility Checks
+### 6.7 Voltage Compatibility Checks
 
 ```mermaid
 graph TB
-    MPU["MPU6050 VCC 3.3V"] -->|✅| OK1["Compatible"]
-    SIM["SIM808 UART 3.3V<br/>VMCU=3.3V"] -->|✅| OK2["Compatible"]
-    LED["Grove LEDs 3.3V"] -->|✅| OK3["Compatible"]
-    BUZZ["Buzzer 3.3V/5V"] -->|⚠️| CHECK["Verify rating"]
-    ESP32_V["ESP32 VIN 5.0V"] -->|✅| OK4["Compatible"]
+    MPU["MPU6050 VCC 3.3V"] -->|[OK]| OK1["Compatible"]
+    SIM["SIM808 UART 3.3V<br/>VMCU=3.3V"] -->|[OK]| OK2["Compatible"]
+    LED["Grove LEDs 3.3V"] -->|[OK]| OK3["Compatible"]
+    BUZZ["Buzzer 3.3V/5V"] -->|[WARNING]| CHECK["Verify rating"]
+    ESP32_V["ESP32 VIN 5.0V"] -->|[OK]| OK4["Compatible"]
 ```
 
 | Device | Voltage | ESP32/GPIO Compatible? |
 |--------|---------|------------------------|
-| MPU6050 VCC | 3.3V | ✅ Yes |
-| SIM808 UART | 3.3V (set VMCU) | ✅ Yes |
-| Grove LEDs | 3.3V | ✅ Typically |
-| Buzzer | 3.3V/5V | ⚠️ Verify |
-| ESP32 VIN | 5.0V | ✅ Set boost to 5.0V |
+| MPU6050 VCC | 3.3V | [OK] Yes |
+| SIM808 UART | 3.3V (set VMCU) | [OK] Yes |
+| Grove LEDs | 3.3V | [OK] Typically |
+| Buzzer | 3.3V/5V | [WARNING] Verify |
+| ESP32 VIN | 5.0V | [OK] Set boost to 5.0V |
 
 **If any device is 5V-only:** Use a logic level shifter.
 
 ---
 
-### 6.7 Pre-Power-On Checks
+### 6.8 Pre-Power-On Checks
 
 ```mermaid
 flowchart TD
@@ -271,7 +282,7 @@ flowchart TD
     J -->|NO| ADDP["Add pull-up resistors"]
     J -->|YES| K["Antennas connected?"]
     K -->|NO| CONN["Connect antennas"]
-    K -->|YES| READY["✅ Ready to power on"]
+    K -->|YES| READY["[OK] Ready to power on"]
 ```
 
 - [ ] Battery voltage: 3.5–4.2V
@@ -287,7 +298,7 @@ flowchart TD
 
 ---
 
-### 6.8 Enclosure Wiring Notes
+### 6.9 Enclosure Wiring Notes
 
 - Antenna routing: Keep GPS/GSM antennas away from noisy power wires
 - Strain relief: Cable ties or clamps at entry points
