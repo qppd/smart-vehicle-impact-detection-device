@@ -87,11 +87,11 @@ flowchart LR
         COUNTDOWN["15s Countdown"]
     end
 
-    subgraph GPS["GPS ACQUISITION"]
-        GPS["AT+CGNSINF Poll"]
+    subgraph GPSACQ["GPS ACQUISITION"]
+        GPSNODE["AT+CGNSINF Poll"]
     end
 
-    subgraph SMS["SMS SENDING"]
+    subgraph SMSENG["SMS SENDING"]
         SEND["AT+CMGS"]
     end
 
@@ -101,8 +101,8 @@ flowchart LR
 
     MPU --> IMPACT
     IMPACT --> COUNTDOWN
-    COUNTDOWN --> GPS
-    GPS --> SEND
+    COUNTDOWN --> GPSACQ
+    GPSACQ --> SEND
     SEND --> ALERT
 ```
 
