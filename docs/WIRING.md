@@ -239,11 +239,11 @@ graph LR
 
 ```mermaid
 graph TB
-    MPU["MPU6050 VCC 3.3V"] -->|[OK]| OK1["Compatible"]
-    SIM["SIM808 UART 3.3V<br/>VMCU=3.3V"] -->|[OK]| OK2["Compatible"]
-    LED["Grove LEDs 3.3V"] -->|[OK]| OK3["Compatible"]
-    BUZZ["Buzzer 3.3V/5V"] -->|[WARNING]| CHECK["Verify rating"]
-    ESP32_V["ESP32 VIN 5.0V"] -->|[OK]| OK4["Compatible"]
+    MPU["MPU6050 VCC 3.3V"] --> OK1["Compatible"]
+    SIM["SIM808 UART 3.3V<br/>VMCU=3.3V"] --> OK2["Compatible"]
+    LED["Grove LEDs 3.3V"] --> OK3["Compatible"]
+    BUZZ["Buzzer 3.3V/5V"] --> CHECK["Verify rating"]
+    ESP32_V["ESP32 VIN 5.0V"] --> OK4["Compatible"]
 ```
 
 | Device | Voltage | ESP32/GPIO Compatible? |
@@ -262,7 +262,7 @@ graph TB
 
 ```mermaid
 flowchart TD
-    A["🔍 Pre-Power-On Checks"] --> B["Battery voltage 3.5–4.2V?"]
+    A["Pre-Power-On Checks"] --> B["Battery voltage 3.5–4.2V?"]
     B -->|NO| FIXB["Charge/replace battery"]
     B -->|YES| C["Boost output 5.0V?"]
     C -->|NO| ADJ["Adjust potentiometer"]
