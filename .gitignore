@@ -34,3 +34,6 @@ platformio.ini.bak
 # Local URLs
 urls.txt
 
+# Tool metadata
+.freebuff/
+
