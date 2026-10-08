@@ -11,7 +11,8 @@ The system is an embedded IoT device that:
 3. Enters a 15-second confirmation window (visual/audible alerts)
 4. If not cancelled, acquires GPS from SIM808
 5. Formats and sends emergency SMS via SIM808
-6. Returns to monitoring after SMS sent or reset
+6. Stays in EMERGENCY state (red LED + periodic beeps); in Phase 1 only a
+   power cycle returns the device to monitoring
 
 All processing occurs on the ESP32. No external server/cloud required.
 
@@ -47,9 +48,10 @@ graph TB
 
     MPU6050 -- "I²C" --> ESP32
     ESP32 -- "UART2" --> SIM808
-    SIM808 -- "GSM" --> GREEN
-    SIM808 -- "SMS" --> RED
-    BUZZ --> ESP32
+    SIM808 -- "GSM SMS" --> PHONE["Recipient phone"]
+    ESP32 --> GREEN
+    ESP32 --> RED
+    ESP32 --> BUZZ
     BAT --> BOOST
     BAT --> TP4056
     BAT --> SIM808
@@ -62,10 +64,10 @@ graph TB
 
 ```mermaid
 flowchart LR
-    A["Power ON"] --> B["System Init"]
+    A["Power ON"] -->    B["System Init"]
     B --> C["MPU6050 Init"]
     C --> D["SIM808 Init"]
-    D --> E["GPS Enable"]
+    D --> E["GPS Power On (AT+CGNSPWR=1)"]
     E --> F["Main Loop"]
     F --> G["Read MPU6050"]
     G --> H["Compute Magnitude"]
@@ -140,7 +142,7 @@ timeline
       MPU6050 Read : 10ms interval : 100 Hz sampling
     section Impact Detected
       Countdown : 15 seconds : 500ms flash interval
-      GPS Acquisition : 30 seconds max : poll every 1s
+      GPS Acquisition : 30 seconds max : poll every 2s
       SMS Sending : 10s timeout : retry 3 times
     section Emergency
       Beep Pattern : 5s interval : long-short-long
@@ -166,14 +168,13 @@ graph LR
 ### 3.8 Power Management
 
 ```mermaid
-graph TB
-    BAT["Li-Po Pack"] --> SW["Main Switch"]
-    SW --> BOOST["Boost Converter"]
+graph TB    BAT["Li-Po Pack 1S2P"] --> SW["Main Switch"]
+    SW --> TP4056["TP4056 B+"]
     SW --> SIM808["SIM808 BAT+"]
-    SW --> TP4056["TP4056 BAT+"]
-    BOOST --> ESP32["ESP32 VIN"]
-    TP4056 --> CHG["USB-C Charging"]
-    BAT --> CAP["1000µF 25V Capacitor<br/>(Decoupling)"]
+    TP4056 --> BOOST["Boost Converter<br/>(from OUT±)"]
+    BOOST --> ESP32["ESP32 VIN 5V"]
+    TP4056 -. "USB-C Charging" .-> SW
+    BAT --> CAP["1000µF 25V Capacitor<br/>(at SIM808)"]
     CAP --> SIM808
 ```
 
@@ -201,7 +202,9 @@ graph TB
 
 - Clear state machine with 9 states
 - Modular architecture (sensor, communication, peripheral modules)
-- Non-blocking using millis()
+- millis()-based state timing (blocking waits remain inside AT-command and beep
+  helpers — see FIRMWARE.md §8.3)
 - Configurable parameters in config.h
-- Fault tolerance for sensor/communication failures
+- Boot-time fault detection (MPU6050/self-test failure → ERROR); runtime SMS
+  failures are logged and the alert sequence still completes
 - Phase 2 extension points documented

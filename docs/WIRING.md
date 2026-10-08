@@ -42,8 +42,8 @@ graph LR
 
 | Peripheral | Signal | ESP32 GPIO | Notes |
 |------------|--------|------------|-------|
-| **MPU6050** | SDA | GPIO21 | I²C data (open-drain, 4.7k pull-up to 3.3V) |
-|  | SCL | GPIO22 | I²C clock (open-drain, 4.7k pull-up to 3.3V) |
+| **MPU6050** | SDA | GPIO21 | I²C data (open-drain, 4.7kΩ pull-up to 3.3V **if the breakout has none**) |
+|  | SCL | GPIO22 | I²C clock (open-drain, 4.7kΩ pull-up to 3.3V **if the breakout has none**) |
 | **SIM808** | TXD (module TX → ESP32 RX) | GPIO16 | UART2_RX |
 |  | RXD (module RX ← ESP32 TX) | GPIO17 | UART2_TX |
 | **Green LED** | Signal | GPIO18 | Output — ON = normal monitoring |
@@ -54,6 +54,13 @@ graph LR
 **[WARNING] VERIFY:** These GPIO numbers are for a generic ESP32 38-pin board. You MUST verify the exact pinout of your ESP32 board before finalizing connections.
 
 **[WARNING] WROVER WARNING:** If your ESP32 module is WROVER (has PSRAM), GPIO16 and GPIO17 are internally bonded to the PSRAM chip and NOT available externally. Use alternate UART2 pins (e.g., GPIO25/26) or switch to a WROOM module.
+
+**[WARNING] I²C PULL-UPS — CHECK BEFORE ADDING:** Most MPU6050 breakouts (e.g.
+GY-521 style boards, typically 2.2–4.7 kΩ) already have pull-ups on SDA/SCL.
+**Inspect/measure your board first:**
+- Pull-ups already fitted → add nothing (the circuit file adds none).
+- No pull-ups → fit external 4.7 kΩ from SDA to 3.3V and SCL to 3.3V.
+- Never end up below ~1.0 kΩ total on either line.
 
 ---
 
@@ -77,24 +84,52 @@ graph TB
 
 ---
 
-### 6.4 Power Wiring
+### 6.4 Power Wiring (as-built reference — matches the CirKit circuit file)
 
 ```mermaid
 graph TB
-    BAT["Li-Po Pack<br/>BAT+ red, BAT- black"]
-    SW["Main Switch"]
-    SIM808["SIM808 BAT+"]
-    TP4056["TP4056 BAT+"]
-    BOOST["Boost Converter VIN"]
+    BAT["Li-Po Pack 1S2P<br/>BAT+ / BAT-"]
+    SW["Main Switch SW1"]
+    TP4056["TP4056 + DW01<br/>B+ / B− → OUT+ / OUT−"]
+    SIM808["SIM808 BAT+ / GND"]
+    CAP["1000µF 25V<br/>(at SIM808)"]
+    BOOST["Boost Converter<br/>VIN+ / VIN− → VOUT+ / VOUT−"]
+    ESP32["ESP32 VIN 5.0V / GND"]
 
     BAT --> SW
-    SW --> SIM808
     SW --> TP4056
-    SW --> BOOST
-    BOOST --> ESP32["ESP32 VIN 5.0V"]
+    SW --> SIM808
+    SW --> CAP
+    BAT --> TP4056
+    BAT --> SIM808
+    TP4056 --> BOOST
+    BOOST --> ESP32
 ```
 
-**Main Switch:** In the positive line from battery pack (before boost converter and SIM808).
+**Topology (verified against `smart-vehicle-impact-detection-device.ckt`):**
+
+1. Pack **BAT+ → SW1**, then the switched rail feeds
+   **TP4056 B+** and **SIM808 BAT+** (1000 µF across SIM808 BAT+/BAT−).
+2. Pack **BAT−** feeds **TP4056 B−** and **SIM808 GND** (common ground).
+3. **TP4056 OUT+ / OUT− → Boost VIN+ / VIN−** (protected charger output feeds the boost).
+4. **Boost VOUT+ → ESP32 5V**, **Boost VOUT− → ESP32 GND**.
+5. **ESP32 GND → SIM808 GND** explicit wire (UART signal ground — see note below).
+
+**As-built consequences (documented, not changed):**
+
+- **Charging requires SW1 = ON** (TP4056 B+ sits after the switch). *Optional
+  improvement:* move the TP4056 B+ lead to the battery side (before SW1) so the pack
+  can charge with the switch off.
+- The DW01/FS8205 **discharge protection only covers currents returning through
+  OUT−** (the boost/ESP32 branch). The SIM808 returns straight to B−, so it is not
+  covered by that protection — keep the pack charged and do not leave the device
+  draining a flat pack unattended.
+
+**[WARNING] COMMON GROUND:** the CirKit diagram relies on the boost module's
+internal VIN−/OUT− connection to join ESP32 ground to battery ground. **Do not rely
+on it** — the written table (connection P10 / UART3) requires a direct
+**ESP32 GND ↔ SIM808 GND** wire. Without it the UART has no solid reference and
+AT communication becomes unreliable.
 
 ---
 
@@ -103,15 +138,17 @@ graph TB
 ```mermaid
 graph LR
     subgraph POWER["POWER"]
-        P1["BAT+ → SIM808 BAT+"]
-        P2["BAT- → SIM808 BAT-"]
-        P3["BAT+ → TP4056 BAT+"]
-        P4["BAT- → TP4056 BAT-"]
-        P5["BAT+ → Boost VIN"]
-        P6["BAT- → Boost GND"]
-        P7["Boost VOUT → ESP32 VIN"]
-        P8["Boost GND → ESP32 GND"]
-        P9["Switch → Battery BAT+"]
+        P1["BAT+ → Switch SW1"]
+        P2["SW1 → TP4056 B+"]
+        P3["SW1 → SIM808 BAT+"]
+        P4["BAT- → TP4056 B-"]
+        P5["BAT- → SIM808 GND"]
+        P6["TP4056 OUT+ → Boost VIN+"]
+        P7["TP4056 OUT- → Boost VIN-"]
+        P8["Boost VOUT+ → ESP32 VIN"]
+        P9["Boost VOUT- → ESP32 GND"]
+        P10["ESP32 GND → SIM808 GND"]
+        P11["1000µF across SIM808 BAT+/BAT-"]
     end
 
     subgraph I2C["I²C"]
@@ -148,24 +185,25 @@ graph LR
 
 | # | FROM | TO | WIRE | VOLTAGE | PURPOSE | NOTES |
 |---|------|----|------|---------|---------|-------|
-|| P1 | Li-Po Pack BAT+ | SIM808 BAT+ | 18 AWG red | 3.5–4.2V | Power SIM808 | Add 1000µF cap at SIM808 end |
-|| P2 | Li-Po Pack BAT- | SIM808 BAT- | 18 AWG black | 0V | Ground for SIM808 | |
-|| P3 | Li-Po Pack BAT+ | TP4056 BAT+ | 18 AWG red | 3.5–4.2V | Charging input | |
-|| P4 | Li-Po Pack BAT- | TP4056 BAT- | 18 AWG black | 0V | Ground for TP4056 | |
-|| P5 | Li-Po Pack BAT+ | Boost VIN | 18 AWG red | 3.5–4.2V | Boost input | |
-|| P6 | Li-Po Pack BAT- | Boost GND | 18 AWG black | 0V | Boost ground | |
-|| P7 | Boost VOUT | ESP32 VIN | 20 AWG red | 5.0V set | ESP32 power | **Measure before connecting** |
-|| P8 | Boost GND | ESP32 GND | 20 AWG black | 0V | ESP32 ground | |
-|| P9 | Main Switch | Battery BAT+ | 18 AWG red | 3.7V | Switch positive line | |
-|| P10 | 1000µF 25V Cap + | SIM808 BAT+ | Short red wire | 3.5–4.2V | Capacitor positive | Low ESR preferred |
-|| P11 | 1000µF 25V Cap - | SIM808 BAT- | Short black wire | 0V | Capacitor negative | Across power input |
+| P1 | Li-Po Pack BAT+ | Main Switch SW1 | 18 AWG red | 3.5–4.2V | Main power switch | |
+| P2 | Switch SW1 output | TP4056 B+ | 18 AWG red | 3.5–4.2V | Charger input | Charge only works with SW1 ON (as-built) |
+| P3 | Switch SW1 output | SIM808 BAT+ | 18 AWG red | 3.5–4.2V | Power SIM808 | Add 1000µF cap at SIM808 end |
+| P4 | Li-Po Pack BAT- | TP4056 B- | 18 AWG black | 0V | Charger/protect ground | |
+| P5 | Li-Po Pack BAT- | SIM808 BAT- | 18 AWG black | 0V | Ground for SIM808 | |
+| P6 | TP4056 OUT+ | Boost VIN+ | 18 AWG red | = pack voltage | Protected boost input | **Use OUT, not B+, per circuit file** |
+| P7 | TP4056 OUT- | Boost VIN- | 18 AWG black | 0V | Boost ground input | |
+| P8 | Boost VOUT+ | ESP32 VIN (5V) | 20 AWG red | 5.0V set | ESP32 power | **Measure before connecting** |
+| P9 | Boost VOUT- | ESP32 GND | 20 AWG black | 0V | ESP32 ground | |
+| P10 | ESP32 GND | SIM808 GND | 22 AWG black | 0V | **UART signal ground** | Required — omitted from circuit diagram |
+| P11 | 1000µF 25V Cap + | SIM808 BAT+ | Short red wire | 3.5–4.2V | TX-burst smoothing | Low ESR preferred |
+| P13 | 1000µF 25V Cap - | SIM808 BAT- | Short black wire | 0V | Capacitor negative | Across power input |
 
 #### ESP32–MPU6050 I²C
 
 | # | FROM | TO | WIRE | VOLTAGE | PURPOSE | NOTES |
 |---|------|----|------|---------|---------|-------|
-| I2C1 | ESP32 GPIO21 | MPU6050 SDA | 22 AWG yellow | 3.3V | I²C data | Add 4.7kΩ pull-up |
-| I2C2 | ESP32 GPIO22 | MPU6050 SCL | 22 AWG yellow | 3.3V | I²C clock | Add 4.7kΩ pull-up |
+| I2C1 | ESP32 GPIO21 | MPU6050 SDA | 22 AWG yellow | 3.3V | I²C data | 4.7kΩ pull-up **if breakout has none** |
+| I2C2 | ESP32 GPIO22 | MPU6050 SCL | 22 AWG yellow | 3.3V | I²C clock | 4.7kΩ pull-up **if breakout has none** |
 | I2C3 | ESP32 3.3V | MPU6050 VCC | 22 AWG red | 3.3V | Power MPU6050 | |
 | I2C4 | ESP32 GND | MPU6050 GND | 22 AWG black | 0V | Ground | |
 
@@ -193,7 +231,7 @@ graph LR
 
 | # | FROM | TO | WIRE | VOLTAGE | PURPOSE | NOTES |
 |---|------|----|------|---------|---------|-------|
-|| BZ1 | ESP32 GPIO25 | Buzzer SIG | 22 AWG blue | 3.3V | Buzzer control | **Verify buzzer type** |
+| BZ1 | ESP32 GPIO25 | Buzzer SIG | 22 AWG blue | 3.3V | Buzzer control | **Active buzzer module (DC drive) required** |
 | BZ2 | ESP32 3.3V | Buzzer VCC | 22 AWG red | 3.3V | Buzzer power | |
 | BZ3 | ESP32 GND | Buzzer GND | 22 AWG black | 0V | Buzzer ground | |
 
@@ -278,23 +316,25 @@ flowchart TD
     H -->|NO| FIXP["Reverse polarity"]
     H -->|YES| I["SIM808 VMCU=3.3V?"]
     I -->|NO| SET["Set VMCU jumper"]
-    I -->|YES| J["MPU6050 pull-ups 4.7kΩ?"]
-    J -->|NO| ADDP["Add pull-up resistors"]
+    I -->|YES| J["I²C pull-ups OK?<br/>(onboard or 4.7kΩ added)"]
+    J -->|NO| ADDP["Add 4.7kΩ pull-ups"]
     J -->|YES| K["Antennas connected?"]
     K -->|NO| CONN["Connect antennas"]
     K -->|YES| READY["[OK] Ready to power on"]
 ```
 
-- [ ] Battery voltage: 3.5–4.2V
+- [ ] Battery voltage: 3.5–4.2V (cells matched <0.1V)
 - [ ] Boost output: 5.0V ±0.1V (no load)
 - [ ] ESP32 VIN: 5.0V
-- [ ] SIM808 voltage: = battery voltage
+- [ ] SIM808 voltage: = battery voltage (3.4–4.2V, SIM808 spec is 3.4–4.4V)
 - [ ] Ground continuity <0.1Ω everywhere
+- [ ] **ESP32 GND ↔ SIM808 GND wire present** (UART signal ground)
 - [ ] No short circuits on power rails
-- [ ] Correct polarity on all polarized components
-- [ ] SIM808 VMCU set to 3.3V
-- [ ] MPU6050 pull-ups installed (4.7kΩ)
-- [ ] Antennas connected
+- [ ] Correct polarity on all polarized components (incl. 1000µF)
+- [ ] SIM808 VMCU set to 3.3V (ESP32 inputs are NOT 5V tolerant)
+- [ ] I²C pull-ups: verified present on breakout, or 4.7kΩ added
+- [ ] Antennas connected (GSM + GPS)
+- [ ] Note: charging works only with the main switch ON (as-built)
 
 ---
 

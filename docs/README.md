@@ -5,6 +5,9 @@
 
 **Phase:** Phase 1 — Current Prototype (impact detection → countdown → GPS → SMS)
 
+**Status:** documentation audited and corrected (see `VALIDATION-REPORT.md`).
+**Hardware tests: NOT YET TESTED** — no result in this guide is a measured PASS.
+
 ---
 
 ## Documentation Index
@@ -21,13 +24,14 @@
 | 8 | `FIRMWARE.md` | Complete ESP32 firmware code |
 | 9 | `TESTING.md` | Testing, calibration, validation, checklist |
 | 10 | `TROUBLESHOOTING.md` | Common failures & fixes |
+| 11 | `VALIDATION-REPORT.md` | Full audit report: status, validation results, remaining issues, build procedure |
 
 ---
 
 ## Quick Reference: System Flow
 
 ```
-POWER ON → INIT → CHECK MPU6050 → CHECK SIM808 → NORMAL MONITORING (GREEN LED)
+POWER ON → INIT → CHECK MPU6050 → CHECK SIM808 → POWER GPS → NORMAL MONITORING (GREEN LED)
   → MPU6050 loop
     → IMPACT DETECTED → RED LED ON → BUZZER WARNING → 15 s CONFIRMATION WINDOW
       → CANCELLED? → Reset to monitoring (Phase 2 only)

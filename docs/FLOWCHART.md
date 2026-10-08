@@ -7,33 +7,34 @@
 
 ```mermaid
 flowchart TD
-    POWER["POWER ON POWER ON"] --> INIT["🔧 SYSTEM INIT"]
+    POWER["POWER ON"] --> INIT["🔧 SYSTEM INIT"]
     INIT --> CHECK_MPU["📋 CHECK MPU6050"]
     CHECK_MPU -->|FAIL| ERROR["WARNING ERROR"]
     CHECK_MPU -->|OK| CHECK_SIM["📋 CHECK SIM808"]
     CHECK_SIM -->|FAIL| ERROR
-    CHECK_SIM -->|OK| CHECK_GPS["📋 CHECK GPS/GSM"]
-    CHECK_GPS -->|FAIL| ERROR
+    CHECK_SIM -->|OK| CHECK_GPS["📋 POWER GPS<br/>AT+CGNSPWR=1"]
+    CHECK_GPS -->|FAIL| MONITOR_WARN["⚠ GPS power-on failed — continue"]
+    MONITOR_WARN --> MONITOR
     CHECK_GPS -->|OK| MONITOR["🟢 NORMAL MONITORING<br/>GREEN LED ON"]
 
     MONITOR --> READ_MPU["📖 Read MPU6050 @100Hz"]
     READ_MPU --> COMPUTE["📐 Compute Magnitude<br/>√(x²+y²+z²)"]
     COMPUTE --> FILTER["🔇 Filter/Validate"]
-    FILTER --> IMPACT{"Impact Impact Detected?"}
+    FILTER --> IMPACT{"IMPACT DETECTED?"}
     IMPACT -->|NO| MONITOR
 
     IMPACT -->|YES| RED_ON["🔴 RED LED ON"]
     RED_ON --> BUZZER_WARN["🔊 BUZZER WARNING"]
-    BUZZER_WARN --> COUNTDOWN["15s 15s CONFIRMATION WINDOW"]
-    COUNTDOWN --> CANCELLED{"FAIL Cancelled?"}
+    BUZZER_WARN --> COUNTDOWN["15s CONFIRMATION WINDOW"]
+    COUNTDOWN --> CANCELLED{"CANCELLED?"}
 
     CANCELLED -->|Phase 2: YES| RESET["🔄 RESET"]
     RESET --> MONITOR
 
     CANCELLED -->|Phase 1: NO| GPS_START["📡 GET GPS LOCATION"]
     GPS_START --> GPS_POLL{"📍 GPS FIX?"}
-    GPS_POLL -->|NO| GPS_UNAVAIL["📱 SMS: GPS UNAVAILABLE"]
-    GPS_POLL -->|YES| FORMAT_SMS["FORMAT SMS FORMAT EMERGENCY SMS"]
+    GPS_POLL -->|NO| GPS_UNAVAIL["📱 SMS: GPS unavailable (no fix)"]
+    GPS_POLL -->|YES| FORMAT_SMS["FORMAT EMERGENCY SMS"]
     GPS_UNAVAIL --> FORMAT_SMS
     FORMAT_SMS --> SEND_SMS["📤 SEND SMS"]
     SEND_SMS --> EMERGENCY["🚨 EMERGENCY STATE<br/>RED LED + BUZZER PATTERN"]
@@ -78,8 +79,8 @@ flowchart TD
     THRESH -->|YES| PERSIST["📊 PERSISTENCE COUNT++"]
     PERSIST --> COUNT{"COUNT >= 3?"}
     COUNT -->|NO| MONITOR
-    COUNT -->|YES| DETECT["Impact IMPACT DETECTED<br/>(last_impact = millis())"]
-    DETECT --> COOLDOWN["15s COOLDOWN 3s"]
+    COUNT -->|YES| DETECT["IMPACT DETECTED<br/>(last_impact = millis())"]
+    DETECT --> COOLDOWN["COOLDOWN 3s"]
     COOLDOWN --> MONITOR
 ```
 
@@ -89,12 +90,12 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    GPS_ON["📡 GPS POWER ON<br/>AT+CGNSPWR=1"] --> WAIT["WAIT WAIT 2s"]
+    GPS_ON["📡 GPS POWER ON<br/>AT+CGNSPWR=1"] --> WAIT["WAIT 2s"]
     WAIT --> POLL["📋 POLL GPS<br/>AT+CGNSINF"]
     POLL --> FIX{"📍 FIX AVAILABLE?<br/>(field 2 = 1)"}
     FIX -->|NO| RETRY{"🔄 RETRY < 10?"}
     RETRY -->|YES| POLL
-    RETRY -->|NO| NO_FIX["📱 SMS: GPS UNAVAILABLE"]
+    RETRY -->|NO| NO_FIX["📱 SMS: GPS unavailable (no fix)"]
     FIX -->|YES| EXTRACT["📝 EXTRACT LAT/LON"]
     EXTRACT --> GPS_OK["PASS GPS FIX OK"]
 ```
@@ -105,11 +106,11 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    CMGF["📱 SET TEXT MODE<br/>AT+CMGF=1"] --> CMGS["📝 SET RECIPIENT<br/>AT+CMGS="+63...""]
-    CMGS --> WAIT_PROMPT{"WAIT WAIT > PROMPT?"}
+    CMGF["📱 SET TEXT MODE<br/>AT+CMGF=1"] --> CMGS["📝 SET RECIPIENT<br/>AT+CMGS=+63..."]
+    CMGS --> WAIT_PROMPT{"> PROMPT RECEIVED?"}
     WAIT_PROMPT -->|NO| RETRY_SEND["🔄 Retry"]
     WAIT_PROMPT -->|YES| SEND_MSG["FORMAT SMS SEND MESSAGE<br/>+ Ctrl+Z 0x1A"]
-    SEND_MSG --> WAIT_OK{"WAIT WAIT +CMGS:"}
+    SEND_MSG --> WAIT_OK{"WAIT +CMGS: RESPONSE"}
     WAIT_OK -->|SUCCESS| EMERGENCY["🚨 EMERGENCY STATE"]
     WAIT_OK -->|FAIL| RETRY_COUNT{"🔄 RETRY < 3?"}
     RETRY_COUNT -->|YES| CMGS
@@ -143,7 +144,7 @@ timeline
       BUZZER WARNING : 0s - 15s
       COUNTDOWN : 15s
     section GPS Acquisition
-      GPS POWER ON : 15s
+      GPS ALREADY ON (powered at boot) : 15s
       POLL GPS : 15s - 45s max
     section SMS Sending
       SEND SMS : 45s+
@@ -156,7 +157,7 @@ timeline
 
 - Clear state machine with 9 states
 - Modular architecture (sensor, communication, peripheral modules)
-- Non-blocking using millis()
+- millis()-based state timing (blocking waits only in AT/beep helpers)
 - Configurable parameters in config.h
 - Fault tolerance for sensor/communication failures
 - Phase 2 extension points documented

@@ -34,9 +34,10 @@ graph TB
 
     MPU6050 -- "I²C" --> ESP32
     ESP32 -- "UART2" --> SIM808
-    SIM808 -- "GSM SMS" --> GREEN
-    SIM808 -- "GSM SMS" --> RED
-    BUZZ --> ESP32
+    SIM808 -- "GSM SMS" --> PHONE["Recipient phone"]
+    ESP32 --> GREEN
+    ESP32 --> RED
+    ESP32 --> BUZZ
     BAT --> BOOST
     BAT --> TP4056
     BAT --> CAP
@@ -60,13 +61,13 @@ graph TB
     CAP["1000µF 25V Capacitor<br/>(Decoupling)"]
 
     BAT --> SW
-    SW --> BOOST
     SW --> SIM808
     SW --> TP4056
+    TP4056 --> BOOST
     BOOST --> ESP32
     BAT --> CAP
     CAP --> SIM808
-    TP4056 -. "Charging" .-> BAT
+    TP4056 -. "USB-C Charging<br/>(switch ON to charge)" .-> BAT
 ```
 
 ---
@@ -205,7 +206,7 @@ graph TB
 
 - Clear state machine with 9 states
 - Modular architecture (sensor, communication, peripheral modules)
-- Non-blocking using millis()
+- millis()-based state timing (blocking waits only in AT/beep helpers)
 - Configurable parameters in config.h
 - Fault tolerance for sensor/communication failures
 - Phase 2 extension points documented

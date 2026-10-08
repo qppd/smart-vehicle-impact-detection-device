@@ -47,7 +47,8 @@ Copy the following into your Arduino IDE project. All code is in a single file f
 #define GPS_TIMEOUT_MS          30000  // 30 seconds for GPS fix
 #define SMS_TIMEOUT_MS          10000  // 10 seconds for SMS response
 #define SMS_RETRY_COUNT         3
-#define UNDERVOLTAGE_MV         3000   // Minimum battery voltage (3.0V)
+#define UNDERVOLTAGE_MV         3000   // RESERVED for Phase 2 — no ADC battery
+                                       // monitoring is implemented in Phase 1
 
 // Emergency SMS
 #define EMS_PHONE_NUMBER      "+63XXXXXXXXXX"  // <-- USER MUST CONFIGURE!
@@ -120,6 +121,7 @@ bool gpsFixAvailable = false;
 unsigned long lastSampleTime = 0;
 unsigned long lastConfirmationBeep = 0;
 bool confirmationBeepState = false;
+unsigned long lastCountdownSec = 999;
 
 // ========================
 // SETUP
@@ -134,7 +136,8 @@ void setup() {
   pinMode(PIN_GREEN_LED, OUTPUT);
   pinMode(PIN_RED_LED, OUTPUT);
   pinMode(PIN_BUZZER, OUTPUT);
-  digitalWrite(PIN_GREEN_LED, LED_ACTIVE_HIGH ? HIGH : LOW);
+  // Green LED stays OFF until MONITORING (green = normal monitoring only)
+  digitalWrite(PIN_GREEN_LED, LED_ACTIVE_HIGH ? LOW : HIGH);
   digitalWrite(PIN_RED_LED, LED_ACTIVE_HIGH ? LOW : HIGH);
   digitalWrite(PIN_BUZZER, BUZZER_ACTIVE_HIGH ? LOW : HIGH);
   
@@ -209,8 +212,10 @@ void setState(SystemState newState) {
     case STATE_CONFIRMATION_WINDOW:
       lastConfirmationBeep = 0;
       confirmationBeepState = false;
+      lastCountdownSec = 999;
       break;
     case STATE_GPS_ACQUISITION:
+      digitalWrite(PIN_RED_LED, LED_ACTIVE_HIGH ? HIGH : LOW);  // red ON through alert sequence
       gpsRetryCount = 0;
       gpsFixAvailable = false;
       gpsLatitude = 0;
@@ -218,10 +223,12 @@ void setState(SystemState newState) {
       sim808Op = SIM808_GPS_ON;
       break;
     case STATE_SMS_SENDING:
+      digitalWrite(PIN_RED_LED, LED_ACTIVE_HIGH ? HIGH : LOW);
       smsRetryCount = 0;
       sim808Op = SIM808_SMS_SEND;
       break;
     case STATE_EMERGENCY:
+      digitalWrite(PIN_RED_LED, LED_ACTIVE_HIGH ? HIGH : LOW);
       beepPattern(3);
       break;
     case STATE_ERROR:
@@ -250,6 +257,14 @@ void handleBoot() {
     Serial.println("[BOOT] SIM808 FAILED");
     setState(STATE_ERROR);
     return;
+  }
+  
+  // Power the GPS at boot so a warm fix is available seconds after an impact.
+  // (GPS is re-enabled in STATE_GPS_ACQUISITION as well; power-on is idempotent.)
+  if (sendATCommand("AT+CGNSPWR=1", "OK", 2000)) {
+    Serial.println("[BOOT] GPS powered on — first fix may take up to ~30 s");
+  } else {
+    Serial.println("[BOOT] GPS power-on failed — will retry after alert");
   }
   
   setState(STATE_SELF_TEST);
@@ -301,6 +316,14 @@ void handleConfirmationWindow() {
     }
   }
   
+  // Countdown log — one line per second (used by test T3 / demo script)
+  unsigned long secsLeft = (elapsed < CONFIRMATION_WINDOW_MS)
+                             ? (CONFIRMATION_WINDOW_MS - elapsed) / 1000 : 0;
+  if (secsLeft != lastCountdownSec) {
+    lastCountdownSec = secsLeft;
+    Serial.printf("[CONFIRM] %lu s remaining\n", secsLeft);
+  }
+  
   // 15s timeout → GPS acquisition
   if (elapsed >= CONFIRMATION_WINDOW_MS) {
     Serial.println("[CONFIRMATION] Window expired, proceeding to emergency");
@@ -335,19 +358,20 @@ void handleGpsAcquisition() {
       sim808Op = SIM808_GPS_READ;
     }
   } else if (sim808Op == SIM808_GPS_READ) {
-    if (sendATCommand("AT+CGNSINF", "+CGNSINF:", 2000)) {
-      if (gpsFixAvailable) {
-        Serial.printf("[GPS] Fix acquired: %.6f, %.6f\n", gpsLatitude, gpsLongitude);
-        setState(STATE_SMS_SENDING);
-      } else if (gpsRetryCount < 10) {
-        gpsRetryCount++;
-        sim808Op = SIM808_GPS_WAIT;
-        sim808LastCmdTime = now;
-      } else {
-        Serial.println("[GPS] Max retries, no fix");
-        gpsFixAvailable = false;
-        setState(STATE_SMS_SENDING);
-      }
+    // queryGPSFix() reads the COMPLETE +CGNSINF line and parses it before returning.
+    // (sendATCommand() returns as soon as the prefix matches, which would discard
+    //  the latitude/longitude fields before they could be parsed.)
+    if (queryGPSFix()) {
+      Serial.printf("[GPS] Fix acquired: %.6f, %.6f\n", gpsLatitude, gpsLongitude);
+      setState(STATE_SMS_SENDING);
+    } else if (gpsRetryCount < 10) {
+      gpsRetryCount++;
+      sim808Op = SIM808_GPS_WAIT;
+      sim808LastCmdTime = now;
+    } else {
+      Serial.println("[GPS] Max retries, no fix");
+      gpsFixAvailable = false;
+      setState(STATE_SMS_SENDING);
     }
   }
 }
@@ -363,7 +387,7 @@ void handleSmsSending() {
       if (smsRetryCount < SMS_RETRY_COUNT) {
         Serial.printf("[SMS] Failed, retry %d/%d\n", smsRetryCount, SMS_RETRY_COUNT);
         sim808Op = SIM808_SMS_SEND;
-        delay(2000);
+        delay(2000);  // 2 s between retries
       } else {
         Serial.println("[SMS] Max retries exceeded");
         sim808Op = SIM808_IDLE;
@@ -402,6 +426,13 @@ bool initMPU6050() {
   if (Wire.endTransmission() != 0) return false;
   delay(100);
   
+  // Digital low-pass filter (DLPF_CFG=2: accel bandwidth ~92 Hz)
+  // Filters high-frequency road/vibration noise; impact transients still pass.
+  Wire.beginTransmission(MPU6050_ADDR);
+  Wire.write(0x1A);  // CONFIG (DLPF)
+  Wire.write(0x02);
+  Wire.endTransmission();
+  
   // Set accelerometer full scale range (±16g)
   Wire.beginTransmission(MPU6050_ADDR);
   Wire.write(0x1C);  // ACCEL_CONFIG
@@ -411,7 +442,7 @@ bool initMPU6050() {
   // Set sample rate divider (100 Hz from 1 kHz DLPF)
   Wire.beginTransmission(MPU6050_ADDR);
   Wire.write(0x19);  // SMPLRT_DIV
-  Wire.write(9);     // 1kHz / (9+1) = 100Hz
+  Wire.write(9);     // DLPF enabled → 1kHz / (9+1) = 100 Hz
   Wire.endTransmission();
   
   // Verify WHO_AM_I
@@ -455,7 +486,7 @@ void readMPU6050() {
 }
 
 void calibrateBias() {
-  Serial.println("[CALIB] Calibrating bias (keep device still)...");
+  Serial.println("[CALIB] Calibrating offsets — keep device LEVEL, in its final mounting orientation, and still...");
   float sumX = 0, sumY = 0, sumZ = 0;
   int samples = 100;
 
@@ -467,13 +498,17 @@ void calibrateBias() {
     delay(10);
   }
 
-  accelBias[0] = sumX / samples;
-  accelBias[1] = sumY / samples;
-  accelBias[2] = sumZ / samples;
+  // Sensor offsets only: subtract the expected 1 g gravity vector so that the
+  // gravity component is PRESERVED. After calibration the magnitude at rest is
+  // ~1.0 g and dynamicMagnitude = |magnitude − 1 g| ≈ 0 g, exactly as documented.
+  accelBias[0] = sumX / samples;              // X offset
+  accelBias[1] = sumY / samples;              // Y offset
+  accelBias[2] = sumZ / samples - 1.0f;       // Z offset (remove expected +1 g)
   biasCalibrated = true;
 
-  Serial.printf("[CALIB] Bias: X=%.3f Y=%.3f Z=%.3f\n",
+  Serial.printf("[CALIB] Offsets: X=%.3f Y=%.3f Z=%.3f g\n",
                  accelBias[0], accelBias[1], accelBias[2]);
+  Serial.println("[CALIB] Expected at rest: magnitude ~1.000 g, dynamic ~0.000 g");
 }
 
 bool detectImpact() {
@@ -566,6 +601,29 @@ String waitForResponse(unsigned long timeout) {
   return response;
 }
 
+bool queryGPSFix() {
+  // Send AT+CGNSINF and wait for the COMPLETE response line, then parse it.
+  // Returns true when a valid fix was parsed (gpsFixAvailable == true).
+  sim808Serial.println("AT+CGNSINF");
+  String response = "";
+  unsigned long start = millis();
+  
+  while (millis() - start < 3000) {
+    while (sim808Serial.available()) {
+      char c = sim808Serial.read();
+      response += c;
+      if (c == '\n' && response.indexOf("+CGNSINF:") >= 0) {
+        Serial.printf("[AT] << %s", response.c_str());
+        return parseGPSInfo(response);
+      }
+    }
+    delay(1);
+  }
+  
+  Serial.println("[GPS] CGNSINF timeout");
+  return false;
+}
+
 bool parseGPSInfo(String response) {
   // Parse +CGNSINF: 1,1,20230101020304.000,14.567890,121.123456,...
   int firstComma = response.indexOf(',');
@@ -613,22 +671,18 @@ bool sendEmergencySMS(float lat, float lon, bool gpsAvail) {
   
   String message;
   if (gpsAvail) {
-    message = "EMERGENCY ALERT\n\n";
-    message += "Possible vehicle impact detected.\n\n";
-    message += "Location:\n";
-    message += "Latitude: " + String(lat, 6) + "\n";
-    message += "Longitude: " + String(lon, 6) + "\n\n";
-    message += "Google Maps:\n";
-    message += "https://maps.google.com/?q=" + String(lat, 6) + "," + String(lon, 6) + "\n\n";
-    message += "Please check the vehicle/occupant immediately.";
+    // Keep the whole message under 160 characters so it is sent as ONE SMS
+    // and the Google Maps link is never truncated.
+    message  = "EMERGENCY ALERT: possible vehicle impact.\n";
+    message += "Lat: " + String(lat, 6) + ", Lon: " + String(lon, 6) + "\n";
+    message += "https://maps.google.com/?q=" + String(lat, 6) + "," + String(lon, 6);
   } else {
-    message = "EMERGENCY ALERT\n\n";
-    message += "Possible vehicle impact detected.\n\n";
-    message += "Location: GPS UNAVAILABLE (no fix)\n\n";
-    message += "Please check the vehicle/occupant immediately.";
+    message  = "EMERGENCY ALERT: possible vehicle impact.\n";
+    message += "Location: GPS unavailable (no fix)\n";
+    message += "Please check the vehicle/occupant.";
   }
   
-  // Truncate message to fit SMS limit (160 chars max)
+  // Safety net only — both messages above fit in one 160-char SMS
   if (message.length() > SMS_MAX_LENGTH) {
     message = message.substring(0, SMS_MAX_LENGTH - 3) + "...";
   }
@@ -699,15 +753,31 @@ void beepPattern(int pattern) {
   3. Install ESP32 board package in Arduino IDE
   4. Select correct board (ESP32 Dev Module) and port
   5. Upload and test with serial monitor at 115200 baud
+  6. Keep the device still (final mounting orientation) during power-on
+     calibration — the red LED fast-blinks ERROR if it is moved during the
+     self-test window
+  7. GPS is powered at boot; the first cold fix can take ~30 s, so boot the
+     device well before it is needed (normal vehicle use)
   
-  TESTING:
+  EXPECTED SERIAL OUTPUT:
+  === Vehicle Impact Detection System ===
+  Phase 1 Firmware v1.0
+  [BOOT] Initializing hardware...
+  [BOOT] MPU6050 OK
+  [BOOT] SIM808 OK
+  [BOOT] GPS powered on — first fix may take up to ~30 s
+  [CALIB] Offsets: X=0.012 Y=-0.008 Z=0.015 g
+  [SELF_TEST] Sensors OK
+  [STATE] 2                 (2 = STATE_MONITORING, green LED ON)
+
+  TESTING (NOT YET TESTED — record results in TESTING.md):
   1. Power on, watch serial for initialization
   2. Green LED should turn on (MONITORING state)
   3. Tap/shake device to trigger impact detection
-  4. Red LED should flash, buzzer beep for 15s
-  5. After 15s, GPS acquisition starts
-  6. SMS sent with location (or GPS unavailable)
-  7. Emergency state: periodic beep pattern
+  4. Red LED should flash, buzzer chirp, serial prints 15 s countdown
+  5. After 15 s, GPS acquisition starts (fix usually already warm)
+  6. SMS sent with location (or "GPS unavailable" if no fix)
+  7. Emergency state: periodic beep pattern; power cycle to reset
 */
 ```
 
@@ -739,13 +809,29 @@ void beepPattern(int pattern) {
 
 ### 8.3 Firmware Features Summary
 
-- **State machine:** 9 states, non-blocking
-- **Impact detection:** Dynamic magnitude with gravity removal, persistence check, cooldown
-- **GPS acquisition:** AT+CGNSINF polling, 30s timeout
-- **SMS sending:** Text mode, Ctrl+Z termination, retry mechanism
-- **Peripherals:** Green/red LEDs, buzzer with configurable patterns
-- **Fault tolerance:** Sensor failure → ERROR state, SIM808 timeout → ERROR state
+- **State machine:** 9 states, millis()-based timing
+- **Impact detection:** gravity-preserving offset calibration → dynamic magnitude
+  `|√(x²+y²+z²) − 1 g|` vs 2.5 g threshold, persistence check (3 samples ≈ 30 ms),
+  3 s cooldown, hardware DLPF (≈92 Hz) noise filtering
+- **GPS:** powered at boot (`AT+CGNSPWR=1`) for warm fixes; polled with
+  `AT+CGNSINF`, 30 s timeout, 10 retries at 2 s, parsed inline
+- **SMS:** text mode, Ctrl+Z termination, ≤160-char message, 3 attempts with 2 s delay
+- **Peripherals:** green/red LEDs (explicit state on every alert state), buzzer patterns
+- **Fault tolerance:** MPU6050 init failure or failed self-test → ERROR state (red LED
+  fast blink, reset required). SIM808 init failure at boot → ERROR state. Runtime
+  SMS failures after retries are logged and the firmware still enters EMERGENCY.
+- **Countdown logging:** one `[CONFIRM] n s remaining` line per second (used by test T3)
 - **Phase 2 ready:** GPIO4 reserved for push button, I²C available for voice module
+
+**Honest limitations:**
+- Blocking `delay()` still exists inside beep patterns, AT-command waits, and SMS
+  retries; state timing itself is millis()-based.
+- No explicit watchdog configuration; the ESP32 Arduino core defaults apply.
+- No battery-voltage monitoring in Phase 1 (`UNDERVOLTAGE_MV` is reserved/unused).
+- One alert sequence per power cycle — after EMERGENCY only a power cycle returns
+  to monitoring.
+- GPS cold start (first fix after a long power-off) can exceed the 30 s window;
+  powering the GPS at boot makes this rare in normal use.
 
 ---
 

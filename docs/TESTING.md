@@ -11,6 +11,19 @@
 4. **Calibration** (tune thresholds using real data)
 5. **Environmental tests** (if needed)
 
+**STATUS LEGEND — use these exact labels:**
+
+| Label | Meaning |
+|-------|---------|
+| `PASS` | Test executed and result observed = expected |
+| `FAIL` | Test executed and result ≠ expected |
+| `NOT TESTED` | Procedure exists, never executed |
+| `BLOCKED` | Cannot be executed until a listed prerequisite is met |
+
+> **CURRENT STATUS: EVERY test in this file is `NOT TESTED`.** No result may be
+> recorded as PASS until it has actually been run on hardware and the observed
+> result written in the *Actual Result* column. Never pre-fill results.
+
 ---
 
 ### 9.2 Electrical Tests (Before Assembly)
@@ -165,16 +178,37 @@ flowchart TD
 |--------|-------------|-------|----------|-----------|
 | T1 | Normal monitoring | Power on, observe LEDs | Green ON, Red OFF | ☐ |
 | T2 | Impact detection | Tap/shake device | Red ON, buzzer | ☐ |
-| T3 | 15s countdown | Watch serial timer | 15s countdown | ☐ |
+| T3 | 15s countdown | Watch serial timer | `[CONFIRM] 14 s remaining` … `0 s remaining`, 15 s total | ☐ |
 | T4 | GPS acquisition | Go outside, clear sky | Fix acquired | ☐ |
 | T5 | Emergency SMS | Check recipient phone | SMS received | ☐ |
-| T6 | GPS unavailable | Indoors, trigger impact | SMS: "GPS UNAVAILABLE" | ☐ |
+| T6 | GPS unavailable | Indoors, trigger impact | SMS contains "GPS unavailable (no fix)" | ☐ |
 | T7 | Hard braking | Drive hard brake at 50km/h | No trigger | ☐ |
 | T8 | Speed bumps | Drive over bumps | No trigger | ☐ |
 | T9 | Potholes | Drive over potholes | No trigger | ☐ |
 | T10 | Power cycle reset | Off/on after emergency | Back to monitoring | ☐ |
 | T11 | Repeated impacts | Trigger twice quickly | Only one SMS | ☐ |
 | T12 | False positive driving | 10km normal driving | 0-1 triggers | ☐ |
+
+---
+
+### 9.4b Failure-Mode Tests
+
+All rows below are **`NOT TESTED`** until executed. Each test must record the
+observed serial output / measurement.
+
+| Test # | Objective | Setup | Procedure | Expected Result (from firmware) | Actual Result | Pass/Fail | Notes |
+|--------|-----------|-------|-----------|-------------------------------|---------------|-----------|-------|
+| F1 | MPU6050 disconnected is detected | Bench, device assembled | Power on with MPU6050 SDA unplugged | Serial `[BOOT] MPU6050 FAILED`, state ERROR, red LED fast-blinks, no monitoring | NOT TESTED | ☐ | |
+| F2 | SIM / SIM808 fault at boot | Bench | Power on with SIM removed (or SIM808 UART unplugged) | Serial `[SIM808] SIM not ready` (or AT timeout) → ERROR state. **Documented consequence: Phase 1 does not start monitoring without a working SIM/SIM808** | NOT TESTED | ☐ | Design limitation — record behaviour |
+| F3 | No GSM network | Device inside a metal box (or no-signal area) | Boot normally, wait for monitoring, trigger an impact | Boot logs CREG warning but continues; after alert, SMS fails 3× then firmware still enters EMERGENCY | NOT TESTED | ☐ | |
+| F4 | UART failure (RX/TX swapped or GND open) | Bench | Boot with SIM808 TX/RX reversed, or without the ESP32 GND ↔ SIM808 GND wire | AT timeouts at boot → ERROR state; serial shows `[AT] << TIMEOUT` | NOT TESTED | ☐ | |
+| F5 | GPS unavailable during alert | Indoors, no sky view | Trigger impact indoors | After 30 s GPS timeout, SMS contains `Location: GPS unavailable (no fix)` | NOT TESTED | ☐ | Test T6 covers the same path |
+| F6 | Power interruption mid-alert | Bench | Remove power during the 15 s countdown and again during GPS acquisition | Device powers off; on power-on it reboots cleanly to MONITORING; no guaranteed SMS (documented) | NOT TESTED | ☐ | |
+| F7 | Sustained vibration / rough road | Vehicle, calibrated device | Drive 10+ min on rough road / washboard surface | No alert (dynamic magnitude stays below threshold) | NOT TESTED | ☐ | Relates to T12 |
+| F8 | Repeated impacts during the window | Bench | Trigger a second impact while the 15 s window is counting | Countdown is NOT restarted, only one alert sequence and one SMS per power cycle | NOT TESTED | ☐ | |
+| F9 | SMS failure (invalid recipient) | Bench | Set `EMS_PHONE_NUMBER` to an invalid number, trigger impact | 3 attempts logged as failed, firmware still enters EMERGENCY; recipient obviously receives nothing | NOT TESTED | ☐ | Restore the number afterwards |
+| F10 | Low-battery behaviour | Bench supply or discharged pack | Set pack to ~3.6 V, then ~3.4 V, observing both rails | Works down to ~3.6 V (XL6009E1 min input); below ~3.4 V SIM808 is out of spec — expect brownout/reset | NOT TESTED | ☐ | Measure, do not assume |
+| F11 | ESP32 brownout under SIM808 TX burst | Bench, pack at 3.7 V | Monitor ESP32 5 V rail and SIM808 VBAT while sending several SMS | No ESP32 reset; SIM808 VBAT stays ≥3.4 V (1000 µF fitted) | NOT TESTED | ☐ | Use the multimeter/oscilloscope if available |
 
 ---
 
@@ -205,6 +239,15 @@ See full calibration guide in original documentation set:
 | **Controlled Impact (avg)** | | | |
 
 **Recommended threshold:** max_normal + 0.5g margin
+
+**Notes:**
+- The default `IMPACT_THRESHOLD_G = 2.5` in the firmware is a **starting value
+  only — the final threshold must be determined experimentally** and recorded in
+  SETUP.md §19.8. Do not cite any threshold as validated until this table is filled.
+- The firmware performs its own offset calibration at every boot: **the device
+  must be still, in its final mounting orientation, while `[CALIB]` runs**
+  (otherwise the red-LED ERROR state or a shifted baseline will result).
+- Repeat the calibration after re-mounting the sensor or changing the vehicle.
 
 ---
 
@@ -245,6 +288,8 @@ flowchart LR
 | ... | ... | ... | |
 
 **Document all test results for defense preparation.**
+
+**Status: all rows above are `NOT TESTED`** (blank boxes = not executed, not a pass).
 
 ---
 

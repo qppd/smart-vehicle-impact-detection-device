@@ -24,6 +24,10 @@ Develop an IoT-based vehicle impact/collision detection device installed inside 
 | Operation from Li-Po battery system | Implemented |
 | Weatherproof enclosure installation | Implemented |
 
+> **Status legend:** *Implemented* means implemented in the Phase 1 firmware /
+design documentation. **Physical build and test status: TBD / NEED USER INPUT —
+no test has been performed yet (see TESTING.md, all tests NOT YET TESTED).**
+
 ### 1.3 Phase 2 — Future Enhancements (Deferred)
 
 | Feature | Status | Notes |
@@ -67,7 +71,7 @@ CHECK MPU6050
   ↓
 CHECK SIM808
   ↓
-CHECK GPS/GSM STATUS
+CHECK GSM NETWORK STATUS (AT)
   ↓
 NORMAL MONITORING
   ↓
@@ -156,13 +160,17 @@ Required considerations:
 
 ### 1.12 Power Architecture
 
-- 2× 3.7V 2000 mAh Li-Po in parallel (1S2P)
-- TP4056 for charging (NOT a 5 V regulator)
-- XL6009E1 / LM2577 boost to 5.0 V
+- 2× 3.7V 2000 mAh Li-Po in parallel (1S2P, ~4000 mAh)
+- **Main switch in the BAT+ lead** → switched rail
+- Switched rail feeds **TP4056 B+** and **SIM808 BAT+** (with 1000µF 25V across SIM808 BAT+/BAT−)
+- TP4056 for charging + protection (NOT a 5 V regulator)
+- **Boost converter fed from TP4056 OUT+/OUT−** (XL6009E1 / LM2577-type, set to 5.0 V)
 - Boost output to ESP32 VIN
-- SIM808 powered from battery (3.5–4.2 V)
-- 1000µF 25V electrolytic capacitor across SIM808 BAT+/BAT- to smooth 2A TX bursts
+- SIM808 powered from the switched battery rail (3.5–4.2 V; SIM808 spec is 3.4–4.4 V, peak 2 A)
+- Explicit **ESP32 GND ↔ SIM808 GND** wire for the UART signal ground
 - Verify before connecting: polarity, voltage, ground common
+- **Charging requires the main switch ON** (as-built; see WIRING.md 6.4)
+- **Practical empty voltage ≈ 3.6 V** — SIM808 stops below 3.4 V and the XL6009E1 boost is only rated from 3.6 V
 
 ### 1.13 Engineering Standards
 
@@ -170,7 +178,7 @@ Required considerations:
 - TBD for unknown values — VERIFY FROM ACTUAL HARDWARE
 - No silent assumptions
 - Configurable parameters, not hard-coded magic numbers
-- Non-blocking firmware design (millis()-based)
+- millis()-based state timing (blocking waits allowed only in AT/beep helpers)
 - Fail-safe behavior where practical
 
 ---
@@ -187,15 +195,17 @@ Required considerations:
 5. Label the pack: BAT+ (red), BAT- (black).
 
 #### Step 2: Install Main Power Switch
-1. Cut the BAT+ wire from the battery pack.
-2. Solder one end to one terminal of the rocker switch.
-3. Solder the other end of the BAT+ wire (from battery) to the other switch terminal.
-4. Verify switch opens and closes the circuit with multimeter.
+1. Connect the pack **BAT+** lead to one terminal of the rocker switch (18 AWG red).
+2. The second switch terminal becomes the **switched rail** that feeds TP4056 B+ and SIM808 BAT+ (Step 3/6).
+3. Verify the switch opens and closes the circuit with a multimeter.
 
-#### Step 3: Connect Boost Converter Input
-1. From the switch output (BAT+ after switch), connect to boost converter VIN (red wire).
-2. Connect BAT- (black) to boost converter GND (black wire).
-3. Use 18-20 AWG wire for these high-current paths.
+#### Step 3: Connect TP4056 and Boost Converter Input
+1. Connect the **switched rail** to **TP4056 B+** (red wire).
+2. Connect pack **BAT−** to **TP4056 B−** (black wire).
+3. Connect **TP4056 OUT+ → Boost VIN+** and **TP4056 OUT− → Boost VIN−** (18–20 AWG) — the boost runs from the charger board's protected output, exactly as in the circuit file.
+4. Use 18–20 AWG wire for these high-current paths.
+
+> **Note (as-built):** because TP4056 B+ sits after the switch, **charging only works with the main switch ON.** *Optional improvement:* move the TP4056 B+ lead to the battery side (before SW1) to allow charging with the switch off.
 
 #### Step 4: Set Boost Converter Output Voltage
 1. **Do not connect to ESP32 yet.**
@@ -209,27 +219,27 @@ Required considerations:
 2. Connect boost converter GND to ESP32 GND (black wire).
 3. Verify 5.0V at ESP32 VIN with multimeter.
 
-#### Step 6: Power SIM808 Directly from Battery
-1. Connect BAT+ (before switch) to SIM808 BAT+ (red wire).
-2. Connect BAT- (before switch) to SIM808 BAT- (black wire).
-   - *Alternative:* Connect after switch if you want SIM808 to power off with main switch.
-   - *Recommendation:* Connect before switch so SIM808 can operate during charging (if desired).
+#### Step 6: Power SIM808 from the Switched Rail
+1. Connect the **switched rail (after switch)** to SIM808 BAT+ (red wire).
+2. Connect pack **BAT−** to SIM808 BAT− (black wire).
+   - *As built (matches the circuit file):* SIM808 is downstream of the main switch, so it powers off with the device — no standby drain, no GSM activity while stored.
 3. Use 18-20 AWG wire.
 4. **Install 1000µF 25V capacitor** across BAT+ and BAT- at SIM808 terminals:
    - Positive lead to BAT+, negative lead to BAT-
    - This suppresses voltage droop during 2A TX bursts
 
-#### Step 7: Connect TP4056 for Charging
-1. Connect battery pack BAT+ to TP4056 BAT+ (red wire).
-2. Connect battery pack BAT- to TP4056 BAT- (black wire).
-3. Verify TP4056 charging LED behavior when USB-C is plugged in.
+#### Step 7: Verify TP4056 Charging
+1. With the main switch **ON** and USB-C plugged into the TP4056, verify the charging LED behaviour (charging → full).
+2. Measure pack voltage while charging: should climb toward 4.2V.
+3. If the charger shows no activity: check USB-C cable (charge-only cables exist), B+/B− polarity, and that the switch is ON.
+4. **In-vehicle charging:** use the **HBK Travel car charger — `C103 TYPE-C` variant (BOM item 20)**: plug the charger into the vehicle accessory (cigarette-lighter) socket, then its **5V USB Type-C output → USB-C cable → TP4056 Type-C port**. Confirm 5V at the TP4056 input before relying on it; an ignition-switched socket only powers while the vehicle is on.
 
 #### Step 8: MPU6050 Wiring
 1. Connect MPU6050 VCC to ESP32 3.3V (red wire).
 2. Connect MPU6050 GND to ESP32 GND (black wire).
 3. Connect MPU6050 SDA to ESP32 GPIO21 (yellow wire).
 4. Connect MPU6050 SCL to ESP32 GPIO22 (yellow wire).
-5. Add 4.7kΩ pull-up resistors from SDA to 3.3V and SCL to 3.3V.
+5. Add 4.7kΩ pull-up resistors from SDA to 3.3V and SCL to 3.3V **only if your MPU6050 breakout does not already have them** (most GY-521-style boards do — see WIRING.md 6.2).
 
 #### Step 9: SIM808 UART Wiring
 1. Connect SIM808 TXD to ESP32 GPIO16 (green wire).
@@ -421,6 +431,11 @@ Two USB-C ports needed:
 
 **Recommendation:** Two separate cutouts with cable glands or rubber grommets.
 
+The TP4056 port is fed either from a USB-C wall/power-bank source or from the
+**HBK Travel car charger, `C103 TYPE-C` variant (BOM item 20)** plugged into the
+vehicle's accessory socket — both land on the same port, so one cutout per
+device port is enough.
+
 #### 14.11 Thermal Management
 
 | Component | Heat Generation | Mitigation |
@@ -558,7 +573,7 @@ This guide explains what can be demonstrated for the **Chapter 1–3 defense/pro
 | **SIM808 SMS** | ✅ Implemented | SMS sent to configured number |
 | **Emergency Countdown** | ✅ Implemented | 15-second timer visible on serial |
 | **GPS in SMS** | ✅ Implemented | Lat/long + Google Maps link in SMS |
-| **No-Fix Handling** | ✅ Implemented | "GPS UNAVAILABLE" in SMS if no fix |
+| **No-Fix Handling** | ✅ Implemented | SMS says "GPS unavailable (no fix)" |
 
 #### 17.3 Features NOT Implemented (Phase 2 — Future Enhancement)
 
@@ -595,8 +610,8 @@ This guide explains what can be demonstrated for the **Chapter 1–3 defense/pro
 
 ##### 4. 15-Second Countdown (1 min)
 - Red LED flashes every 500ms
-- Buzzer beeps every 500ms
-- Serial shows countdown timer: 14s, 13s... 0s
+- Buzzer chirps (50 ms) once per second
+- Serial prints `[CONFIRM] 14 s remaining` … down to `0 s remaining`
 - **Phase 1:** No cancellation possible (no button/voice)
 
 ##### 5. GPS Acquisition (30 sec - 1 min)
@@ -609,20 +624,13 @@ This guide explains what can be demonstrated for the **Chapter 1–3 defense/pro
 - System enters SMS_SENDING
 - Serial shows AT command sequence
 - Recipient phone receives SMS
-- Show SMS content:
+-  Show SMS content:
   ```
-  EMERGENCY ALERT
-  Possible vehicle impact detected.
-  
-  Location:
-  Latitude: 14.XXXXXX
-  Longitude: 121.XXXXXX
-  
-  Google Maps:
+  EMERGENCY ALERT: possible vehicle impact.
+  Lat: 14.XXXXXX, Lon: 121.XXXXXX
   https://maps.google.com/?q=14.XXXXXX,121.XXXXXX
-  
-  Please check the vehicle/occupant immediately.
   ```
+  (If no fix: `Location: GPS unavailable (no fix)` — message still ≤160 chars)
 
 ##### 7. Emergency State (30 sec)
 - System enters EMERGENCY state
@@ -643,7 +651,7 @@ This guide explains what can be demonstrated for the **Chapter 1–3 defense/pro
    - Cooldown period (3s) prevents re-trigger
 
 2. **State Machine Architecture:**
-   - Non-blocking design using `millis()`
+   - State machine timed with `millis()` (blocking waits only in AT/beep helpers)
    - Clear states: BOOT → MONITORING → IMPACT_DETECTED → CONFIRMATION_WINDOW → GPS_ACQUISITION → SMS_SENDING → EMERGENCY
 
 3. **Power Architecture:**
@@ -660,8 +668,8 @@ This guide explains what can be demonstrated for the **Chapter 1–3 defense/pro
 5. **Safety Features:**
    - 15-second cancellation window (Phase 1: auto-send)
    - GPS timeout (30s) with fallback message
-   - SMS retry (3 attempts)
-   - Watchdog timer enabled
+   - SMS retry (3 attempts, 2 s apart)
+   - No explicit watchdog configuration — ESP32 Arduino core defaults apply
 
 #### 17.6 Hardware Walkthrough
 
@@ -684,32 +692,35 @@ Show the physical prototype:
 
 #### 17.7 Calibration Demonstration
 
-Show calibration data:
+Prepare/show calibration data (record actual values — do not pre-fill):
 - Spreadsheet with test scenarios (stationary, driving, bumps, impacts)
 - Maximum normal dynamic magnitude measured
 - Threshold set with safety margin
-- Zero false positives during test drive
+- **False-positive results during driving: NOT YET TESTED** — log them in
+  TESTING.md (tests T7–T12). Do not claim "zero false positives" until the
+  driving tests have actually been run.
 
 #### 17.8 Known Limitations (Honest Assessment)
 
 1. **Phase 1 has no user cancellation** — SMS always sends after 15s
-2. **GPS requires sky view** — indoor demo will show "GPS UNAVAILABLE"
+2. **GPS requires sky view** — indoor demo will show "GPS unavailable (no fix)"
 3. **SIM card must have load/coverage** — SMS fails without network
 4. **Threshold calibrated for specific vehicle** — needs re-tuning per vehicle
 5. **No battery monitoring in Phase 1** — add in Phase 2
-6. **No deep sleep** — continuous operation, ~200-300mA draw
+6. **No deep sleep** — continuous operation, GPS powered at boot; current draw **NOT MEASURED** (rough estimate 200–300 mA at the pack — UNVERIFIED)
 
 #### 17.9 Q&A Preparation
 
 | Question | Answer |
 |----------|--------|
 | "Why no cancellation button?" | Deferred to Phase 2; hardware not provided; architecture ready for it |
-| "What if GPS fails?" | Sends SMS with "GPS UNAVAILABLE" after 30s timeout |
-| "How accurate is impact detection?" | Calibrated from real driving data; ~0 false positives in test |
+| "What if GPS fails?" | Sends SMS with "GPS unavailable (no fix)" after the 30 s timeout |
+| "How accurate is impact detection?" | Threshold-based impact detection (\|√(x²+y²+z²)−1g\| > 2.5 g + 3-sample persistence); accuracy is **NOT YET VALIDATED** — it must be calibrated per vehicle (TESTING.md §9.5) |
 | "Can it detect rollover?" | Not in Phase 1; gyroscope data available for Phase 2 |
-| "Battery life?" | ~12-24h continuous; depends on GPS/SMS frequency |
+| "Battery life?" | **NOT MEASURED** — depends on usage; estimate must be obtained from test T11 |
 | "Why SMS not internet?" | Reliable in areas without data coverage; works on basic GSM |
 | "Commercial viability?" | Prototype only; needs certification, ruggedization, regulatory |
+| "How do you charge it in a vehicle?" | **HBK Travel car charger, `C103 TYPE-C` variant (BOM item 20)** → vehicle 12/24V accessory socket → USB-C → TP4056 input; main switch must be ON while charging (B+ sits after the switch) |
 
 #### 17.10 Presentation Tips
 
@@ -722,12 +733,16 @@ Show calibration data:
 
 #### 17.11 Summary
 
-**Phase 1 delivers a complete, working prototype** that:
-- Detects impacts with calibrated algorithm
+**Phase 1 implements the complete alert chain in firmware** (to be verified by
+hardware testing — see TESTING.md):
+- Detects impacts with a calibrated, persistence-checked algorithm
 - Warns with LED + buzzer for 15 seconds
 - Acquires GPS location
 - Sends emergency SMS with location
-- Handles GPS/network failures gracefully
+- Handles GPS/network failures with documented fallbacks
+
+**Current status: NOT YET TESTED on hardware.** Every claim above must be
+confirmed with the test procedures in TESTING.md before it is presented as working.
 
 **Phase 2 additions** (push button, voice) are clearly separated and architecturally supported.
 
@@ -775,16 +790,16 @@ Show calibration data:
 
 | # | Connection | Verified | Wire AWG/Color |
 |---|------------|----------|----------------|
-| W1 | Battery BAT+ → Switch → Boost VIN / SIM808 BAT+ / TP4056 BAT+ | ☐ | _____ |
-| W2 | Battery BAT- → Boost GND / SIM808 BAT- / TP4056 BAT- | ☐ | _____ |
-| W3 | Boost VOUT → ESP32 VIN | ☐ | _____ |
-| W4 | Boost GND → ESP32 GND | ☐ | _____ |
+| W1 | Battery BAT+ → Switch → TP4056 B+ and SIM808 BAT+ | ☐ | _____ |
+| W2 | Battery BAT- → TP4056 B- and SIM808 BAT- | ☐ | _____ |
+| W3 | TP4056 OUT+ → Boost VIN+ and TP4056 OUT- → Boost VIN- | ☐ | _____ |
+| W4 | Boost VOUT+ → ESP32 VIN and Boost VOUT- → ESP32 GND | ☐ | _____ |
 | W5 | ESP32 3.3V → MPU6050 VCC | ☐ | _____ |
 | W6 | ESP32 GND → MPU6050 GND | ☐ | _____ |
 | W7 | ESP32 GPIO21 → MPU6050 SDA | ☐ | _____ |
 | W8 | ESP32 GPIO22 → MPU6050 SCL | ☐ | _____ |
-| W9 | 4.7kΩ pull-up SDA → 3.3V | ☐ | _____ |
-| W10 | 4.7kΩ pull-up SCL → 3.3V | ☐ | _____ |
+| W9 | 4.7kΩ pull-up SDA → 3.3V (only if breakout lacks pull-ups) | ☐ | _____ |
+| W10 | 4.7kΩ pull-up SCL → 3.3V (only if breakout lacks pull-ups) | ☐ | _____ |
 | W11 | ESP32 GPIO16 → SIM808 TXD | ☐ | _____ |
 | W12 | ESP32 GPIO17 → SIM808 RXD | ☐ | _____ |
 | W13 | ESP32 GND → SIM808 GND | ☐ | _____ |
@@ -798,6 +813,7 @@ Show calibration data:
 | W21 | ESP32 GPIO25 → Buzzer SIG | ☐ | _____ |
 | W22 | ESP32 3.3V → Buzzer VCC (if needed) | ☐ | _____ |
 | W23 | ESP32 GND → Buzzer GND | ☐ | _____ |
+| W24 | 1000µF 25V across SIM808 BAT+/BAT- (polarity correct) | ☐ | _____ |
 
 #### 19.4 Software Checklist
 
@@ -816,7 +832,7 @@ Show calibration data:
 | S11 | Impact threshold calibrated | ☐ | Value: _____ g |
 | S12 | 15s countdown works | ☐ | Verified on serial |
 | S13 | False positive test passed | ☐ | 0-1 per 10 km |
-| S14 | GPS unavailable handled | ☐ | SMS: "GPS UNAVAILABLE" |
+| S14 | GPS unavailable handled | ☐ | SMS: "GPS unavailable (no fix)" |
 | S15 | SMS retry mechanism tested | ☐ | 3 retries |
 | S16 | Emergency state entered | ☐ | After SMS |
 | S17 | Power cycle resets to monitoring | ☐ | |
@@ -842,6 +858,9 @@ Show calibration data:
 | M15 | Screws torqued evenly | ☐ | Gasket compressed |
 
 #### 19.6 Integration Test Results
+
+> **STATUS: ALL TESTS BELOW ARE NOT YET TESTED.** Record the actual result and
+date for each; never mark a box PASS without a real observation.
 
 | Test | Pass/Fail | Notes |
 |------|-----------|-------|
@@ -934,7 +953,7 @@ ________________________________________________________________
 
 **Electrical Tests (E1-E11)** (Section 9.2) before any firmware upload.
 
-**Then:** Upload calibration sketch (Section 9.5) → Record stationary data → Verify MPU6050 reads ~1g on one axis.
+**Then:** follow the calibration procedure (TESTING.md §9.5) using the serial monitor → Record stationary data → Verify magnitude ≈ 1.0 g and dynamic ≈ 0.0 g at rest (self-test passes).
 
 **Then:** Upload full firmware → Open serial monitor → Power on → Verify state sequence: BOOT → SELF_TEST → MONITORING → Green LED ON.
 

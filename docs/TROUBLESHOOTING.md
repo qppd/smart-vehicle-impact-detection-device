@@ -20,6 +20,7 @@ flowchart TD
     
     TP4056["TP4056 not charging"] --> CHECK_CABLE["USB cable (data+power)?"]
     TP4056 --> CHECK_BOARD["Faulty board?"]
+    TP4056 --> CHECK_5V["Car charger C103 / socket giving 5V?"]
     
     BAT_DRAIN["Battery drains overnight"] --> CHECK_SHORT["Parasitic drain?"]
     BAT_DRAIN --> CHECK_LEAK["Leakage?"]
@@ -34,7 +35,9 @@ flowchart TD
 | ESP32 randomly resets | Under-voltage, weak boost converter | Verify boost output under load |
 | SIM808 resets during TX | Voltage sag (2A peak) | Add bulk cap near SIM808 VIN |
 | Boost converter overheats | Input voltage too low or overloaded | Check input, reduce load, add heatsink |
-| TP4056 not charging | USB cable only (no data), faulty board | Use proper USB-C cable, test with another source |
+| TP4056 not charging | **Main switch is OFF (TP4056 B+ sits after the switch)**, charge-only USB cable, faulty board, **car charger not outputting 5V / wrong variant (must be `C103 TYPE-C`) or ignition-switched 12V socket is off** | Turn the switch ON while charging; use a proper USB-C data+power cable; for in-vehicle charging plug the HBK C103 car charger into a live accessory socket and confirm 5V at the TP4056 |
+| Boost output = 0 V from a 3.7 V pack | Boost module minimum input (XL6009E1: 3.6 V) or module defective | Verify module datasheet/startup voltage; test with a bench supply ≥4 V |
+| ESP32 browns out when SMS sends | Pack sag below ~3.6 V or 1000 µF missing at SIM808 | Charge pack, verify capacitor at SIM808 BAT+/BAT− (18 AWG, short leads) |
 | Battery drains overnight | Parasitic drain, short circuit | Disconnect loads, check with multimeter |
 | Battery hot | Internal short, overcharge | Stop use immediately, check TP4056 |
 
@@ -96,7 +99,7 @@ flowchart TD
 
 | Symptom | Possible Cause | Solution |
 |---------|----------------|----------|
-| AT returns nothing | UART mismatch, no power | Check baud rate, VMCU setting, power |
+| AT returns nothing | UART mismatch, no power, missing ESP32 GND ↔ SIM808 GND wire | Check baud rate (module autobauds — send `AT` repeatedly or set `AT+IPR=115200`), VMCU = 3.3V, power, and the common ground wire |
 | AT returns ERROR | Command syntax | Check AT command spelling |
 | +CPIN: NOT INSERTED | SIM not inserted or not seated | Remove and reinsert SIM |
 | +CPIN: SIM PIN | SIM has PIN enabled | Disable SIM PIN |
@@ -144,7 +147,8 @@ flowchart TD
 
 | Symptom | Possible Cause | Solution |
 |---------|----------------|----------|
-| Boots but no monitoring | I²C or UART init failure | Check serial debug output |
+| Boots but no monitoring (red LED fast-blink) | MPU6050/SIM808 init failure or self-test failed (device moved during boot calibration) | Read the serial log: `[BOOT] ... FAILED` / `[SELF_TEST] Sensor reading abnormal`; hold the device still during power-on and reset |
+| Green LED never turns on | Never reached MONITORING (see above) or GPIO18 wiring | Check serial, then wiring |
 | Impact detected but no SMS | GPS timeout, SIM808 issue | Verify GPS fix, check AT commands |
 | SMS sent with wrong location | GPS data stale or wrong parsing | Update GPS acquisition logic |
 | Countdown not timing correctly | millis() overflow or wrong math | Use unsigned long math carefully |

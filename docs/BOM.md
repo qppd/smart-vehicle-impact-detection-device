@@ -24,7 +24,15 @@
 | 15 | Dupont Wire Kit | 1 | Assorted | Prototyping only | [Lazada - Dupont Kit](https://www.lazada.com.ph/products/pdp-i2658568071-s12646800983.html) |
 | 16 | TNT SIM Card | 1 | Registered | GSM/SMS testing | (User supplied) |
 | 17 | Electrolytic Capacitor 1000µF 25V | 1 | Low ESR preferred, 25V min | SIM808 input decoupling (smooths 2A TX bursts) | [Lazada - 1000uF 25V](https://www.lazada.com.ph/products/pdp-i4246157653-s23691141314.html) |
-| 18 | Resettable Fuse 3A | 1 | 3A hold, auto-recover | Battery positive line protection | TBD |
+| 18 | 4.7 kΩ Resistor | 0–2 | ¼W, any tolerance | I²C pull-ups — **only if your MPU6050 breakout has none** (most GY-521-style boards already do). See WIRING.md 6.2 | (Not needed if breakout has pull-ups) |
+| 19 | Heat-shrink / Electrical Tape | 1 | — | Insulating the parallel pack joints (SETUP.md Step 1) | (Consumable) |
+| 20 | HBK Travel Car Charger — **C103 USB-C variant** | 1 | 12/24V accessory socket → **5V output on USB Type-C**, dual USB output | **Charging source for the TP4056**: its Type-C output connects directly to the **TP4056 Type-C port**. **Order variant `C103 TYPE-C`** (not C102 / micro-V8 / iOS) | [Lazada - HBK Car Charger C103 USB-C](https://www.lazada.com.ph/products/hbk-travel-car-charger-c102-c103-dual-usb-output-for-andriod-micro-v8-and-type-c-ios-onhand-sale-i4112106562-s133615824176.html) |
+
+**Not listed here:** enclosure mounting hardware (standoffs, screws, cable
+glands, sealant, Velcro) is itemized separately in **SETUP.md §14.18**.
+Antennas ship with the SIM808 module (item 3). Lazada product links above are
+**UNVERIFIED** (live availability not checked) — substitute equivalent parts if
+a link is dead.
 
 ---
 
@@ -54,12 +62,21 @@
   - DC044: 5–26V (barrel jack)
   - V_IN: 5–26V (pin header)
   - Li-Po interface: 3.5–4.2V (direct battery)
+- **VBAT (module supply):** 3.4V–4.4V (SIMCom), **peak up to 2 A** during GSM TX
+  bursts — this project powers it straight from the 1S pack, so the pack,
+  wiring (18–20 AWG) and the 1000µF capacitor must handle that burst
 - **GSM:** Quad-band 850/900/1800/1900 MHz
-- **GPS:** L1 C/A, 42 channels, -160 dBm tracking, -143 dBm cold start
-- **TTFF:** ~30s cold, ~1s hot
-- **Accuracy:** <2.5m CEP
+- **GPS:** L1 C/A, 22 tracking / 66 acquisition channels, −165 dBm tracking,
+  −147 dBm cold start (SIMCom SIM808 specification)
+- **TTFF:** typically ~30 s cold start, ~1 s hot start (manufacturer-typical —
+  **not measured on this project: UNVERIFIED**)
+- **Accuracy:** <2.5 m CEP (manufacturer spec, open-sky conditions)
 - **UART:** TTL, RXD/TXD/VMCU
-- **VMCU:** Sets UART logic level (1.25V / 3.3V / 5V) — **SET TO 3.3V FOR ESP32**
+- **VMCU:** some SIM808 breakout boards expose a VMCU jumper/resistor that selects
+  the UART logic level (commonly 3.3V / 5V). **SET TO 3.3V FOR ESP32 — ESP32
+  GPIO inputs are NOT 5V tolerant.** *Verify your actual board: NEED USER INPUT.*
+  (The bare SIM808 module runs ~2.8V IO; only the breakout's level selection
+  matters here.)
 - **Antenna:** GSM + GPS antennas included
 - **Current:** Up to 2A peak during TX burst
 
@@ -75,6 +92,9 @@
 - **Full charge voltage:** 4.2V (per cell)
 - **Minimum safe discharge voltage:** 3.0V per cell (do not discharge below this)
 - **Cut-off voltage (recommended):** 3.2V (protects cell longevity)
+- **System operating limit (this design):** the SIM808 needs ≥3.4V and the
+  XL6009E1 boost needs ≥3.6V input, so **recharge at ~3.7V pack voltage** —
+  the electronics stop working before the cells reach their 3.0V safety floor
 - **Total capacity:** ~4000 mAh (parallel connection)
 - **⚠️ Safety:** Must verify voltage match (<0.1V diff) before paralleling
 - **⚠️ Protection:** Each cell must have protection circuit or use protected cells
@@ -89,8 +109,35 @@
 - **Implication for 1S2P:** Parallel cells appear as one larger 1S cell — OK if cells matched
 - **Verify on board:** DW01 protection IC, FS8205 MOSFETs, charge current resistor
 
+#### HBK Travel Car Charger (5V source for TP4056 charging)
+- **Purpose:** provides the **5V feed into the TP4056 Type-C input** so the 1S2P
+  pack can be recharged from the vehicle's accessory (cigarette-lighter) socket
+- **Part / variant:** HBK Travel Car Charger C102/C103 — **order the `C103 TYPE-C`
+  variant only.** The same listing also sells C102 and micro-USB-V8 / iOS builds;
+  those connectors will not plug into the TP4056
+- **Input:** 12/24V DC from the vehicle accessory socket *(typical for this
+  class of travel charger — **UNVERIFIED, not measured on this project**)*
+- **Output:** **5V DC on the USB Type-C output** *(confirmed — C103 variant)*,
+  dual USB outputs
+- **Connection:** **car charger Type-C output → USB-C cable → TP4056 Type-C
+  port** (direct 5V charge feed; no wiring into the device harness — external
+  accessory only)
+- **Current:** charger rating **TBD: verify label/datasheet**; the TP4056 draws
+  its ~1A charge current, so any ≥1A USB source is sufficient
+- **⚠️ NOT a pack regulator** — it only sources 5V. CC/CV charging, 4.2V
+  cut-off and protection stay with the TP4056/DW01
+- **⚠️ Charging still requires the main switch ON** (TP4056 B+ sits after SW1)
+  — see SETUP.md Step 7 and WIRING.md §6.4
+- **⚠️ Vehicle socket:** check whether the socket is ignition-switched or
+  always-on; an always-on socket will keep the charger powered when the vehicle
+  is parked — unplug when not charging *(NEED USER INPUT)*
+
 #### Boost Converter (XL6009E1 / LM2577-type)
-- **Input:** 3.0–32V (depends on exact module)
+- **Input:** datasheet-dependent — **XL6009E1 is rated 3.6V–36V input** (XLSEMI
+  datasheet; some older/duplicate datasheets state 5V–32V). **LM2577: 3.5V–40V**
+  (TI). *A Li-Po runs 3.0–4.2V, so operation below ~3.6V is NOT guaranteed*
+  — verify your actual module starts and regulates down to 3.5V, otherwise use a
+  boost rated for ≥3V input (e.g. MT3608, 2–24V). **NEED USER INPUT / measure.**
 - **Output:** Adjustable, target 5.0V for ESP32 VIN
 - **Current:** Up to 3-4A (XL6009) / ~2A (LM2577) — **TBD: verify module rating**
 - **Adjustment:** Multi-turn potentiometer
@@ -124,9 +171,9 @@
 | Boost converter max current | Module label / datasheet |
 | Buzzer type & voltage | Active vs passive, 3.3V vs 5V |
 | SIM808 antenna connectors | SMA / U.FL / onboard |
-|| 1000µF capacitor polarity | BAT+ = positive, BAT- = negative |
-| Resettable fuse | Rating, hold current, trip time |
+| 1000µF capacitor polarity | BAT+ = positive, BAT- = negative |
 | TP4056 charge current resistor | Actual charge current |
+| Car charger variant & output | Received **C103 TYPE-C** (not C102/V8/iOS); **5V on its Type-C output at the TP4056 port** under load |
 | Li-Po cell protection | Protected vs bare cells |
 | Grove LED pinout | Signal pin position |
 

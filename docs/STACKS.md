@@ -5,21 +5,24 @@
 
 ### 7.1 Firmware Overview
 
-Complete ESP32 firmware for Phase 1 (impact detection → countdown → GPS → SMS). Designed for modularity, non-blocking operation, and Phase 2 extensibility.
+Complete ESP32 firmware for Phase 1 (impact detection → countdown → GPS → SMS). Written as a **single file** (see FIRMWARE.md §8.1) with logically separated sections so it can be split into modules later; Phase 2 extensibility is preserved.
 
 ---
 
 ### 7.2 Firmware Architecture
 
+> **Logical structure only** — the Phase 1 deliverable is one `.ino`/`.cpp` file
+> (FIRMWARE.md §8.1). The diagram shows how the code is organized inside it.
+
 ```mermaid
 graph TB
     MAIN["main.cpp<br/>setup() / loop()"]
-    SM["state_machine.cpp/h"]
-    SENSOR["sensor.cpp/h<br/>MPU6050"]
-    IMPACT["impact_detector.cpp/h"]
-    COMM["communication.cpp/h<br/>SIM808"]
-    PERIPH["peripheral.cpp/h<br/>LEDs + Buzzer"]
-    CONFIG["config.h"]
+    SM["state_machine"]
+    SENSOR["sensor code<br/>MPU6050"]
+    IMPACT["impact_detector"]
+    COMM["communication code<br/>SIM808"]
+    PERIPH["peripherals<br/>LEDs + Buzzer"]
+    CONFIG["configuration<br/>(#define block)"]
 
     MAIN --> SM
     MAIN --> SENSOR
@@ -140,14 +143,21 @@ graph TB
 **Functions:**
 - `initMPU6050()` — Wake sensor, set ±16g FSR, 100 Hz sample rate, verify WHO_AM_I = 0x68
 - `readMPU6050()` — Read x/y/z acceleration (16-bit → float g)
-- `calibrateBias()` — Average 100 stationary readings to compute gravity bias
+- `calibrateBias()` — Averages 100 stationary readings (device level, in its
+  final mounting orientation) and stores **sensor offsets only**: measured mean
+  minus the expected 1 g on Z, so gravity is preserved and the magnitude at rest
+  reads ~1.0 g
 
 **Impact Detection:**
 ```cpp
 bool detectImpact() {
-  if (millis() - lastImpactTime < IMPACT_COOLDOWN_MS) return false;
+  if (millis() - lastImpactTime < IMPACT_COOLDOWN_MS) {
+    impactConsecutiveCount = 0;
+    return false;
+  }
   
-  float dynamicMag = fabs(accelData.magnitude - 1.0);  // Remove gravity
+  // dynamicMagnitude = |√(x²+y²+z²) − 1 g|, computed in readMPU6050()
+  float dynamicMag = accelData.dynamicMagnitude;
   
   if (dynamicMag > IMPACT_THRESHOLD_G) {
     impactConsecutiveCount++;
@@ -196,7 +206,7 @@ See full guide in original documentation set:
 - Dynamic magnitude: √(x² + y² + z²) - 1g
 - Threshold with persistence check (3 samples)
 - Cooldown period (3s)
-- Calibration procedure (12 scenarios)
+- Calibration procedure (scenario table in TESTING.md §9.5)
 - False positive reduction strategies
 
 ---
@@ -207,7 +217,7 @@ See full guide in original documentation set:
 ```
 AT+CGNSPWR=1          // Enable GPS power
 AT+CGNSSEQ="RMC"      // Set NMEA output (optional)
-// Wait for fix (poll every 1s)
+// Wait for fix (firmware polls every 2s)
 AT+CGNSINF            // Get GPS info
 ```
 
@@ -218,9 +228,11 @@ AT+CGNSINF            // Get GPS info
 - fix_status = 1 → valid fix
 - lat/long in DD.dddddd format
 
-**Timeout:** 30 seconds cold start, 10 seconds hot start.
+**Timeout:** firmware allows 30 s total, polling every 2 s (up to 10 polls).
+Manufacturer-typical TTFF: ~30 s cold start, ~1 s hot start (**UNVERIFIED for
+this build**) — the GPS is powered at boot so fixes are normally warm by alert time.
 
-**No-fix handling:** Send SMS with "GPS UNAVAILABLE".
+**No-fix handling:** Send SMS containing "GPS unavailable (no fix)".
 
 ---
 
@@ -238,26 +250,20 @@ AT+CGNSINF            // Get GPS info
 
 **Message Format:**
 ```
-EMERGENCY ALERT
-
-Possible vehicle impact detected.
-
-Location:
-Latitude: <lat>
-Longitude: <lon>
-
-Google Maps:
+EMERGENCY ALERT: possible vehicle impact.
+Lat: <lat>, Lon: <lon>
 https://maps.google.com/?q=<lat>,<lon>
-
-Please check the vehicle/occupant immediately.
 ```
+(≤160 characters — sent as a single SMS; the maps link is never truncated)
 
 **GPS Unavailable:**
 ```
-Location: GPS UNAVAILABLE (no fix)
+EMERGENCY ALERT: possible vehicle impact.
+Location: GPS unavailable (no fix)
+Please check the vehicle/occupant.
 ```
 
-**Retry:** 3 attempts, 5s delay between retries.
+**Retry:** 3 attempts, 2 s delay between retries (matches firmware).
 
 ---
 
@@ -282,19 +288,19 @@ graph LR
 
 **Buzzer Patterns:**
 - Pattern 1 (impact warning): Single 100ms beep
-- Pattern 2 (confirmation): Double beep, 100ms apart
-- Pattern 3 (emergency): Long-short-long (300-100-300ms)
+- Pattern 2 (reserved — the confirmation window uses an inline 50 ms chirp once per second with a 500 ms LED flash)
+- Pattern 3 (emergency): Long-short-long (300-100-300ms), repeated every 5 s
 
 ---
 
-### 7.12 Non-Blocking Design
+### 7.12 Timing Design
 
-- **No `delay()`** in main loop
-- `millis()`-based timing for all timeouts
-- Sensor read every 10ms (100 Hz)
-- SIM808 command queue with state sub-states
-- GPS polling every 1s during acquisition
-- SMS retry with delay
+- State-machine timing is `millis()`-based (countdown, GPS/SMS timeouts, LED flash)
+- Blocking `delay()` still exists inside beep patterns, AT-command waits, and the
+  2 s SMS retry pause (documented, acceptable for this prototype)
+- Sensor read every 10ms (100 Hz) with hardware DLPF (≈92 Hz) filtering
+- SIM808 sub-states with 2 s GPS polling interval
+- Countdown logged once per second (`[CONFIRM] n s remaining`)
 
 ---
 
@@ -364,7 +370,7 @@ monitor_speed = 115200
 
 - Clear state machine with 9 states
 - Modular architecture (sensor, communication, peripheral modules)
-- Non-blocking using millis()
+- millis()-based state timing (blocking waits remain in AT/beep helpers)
 - Configurable parameters in config.h
-- Fault tolerance for sensor/communication failures
+- Boot-time fault detection → ERROR state; runtime SMS failures are logged
 - Phase 2 extension points documented
