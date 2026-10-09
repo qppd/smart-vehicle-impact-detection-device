@@ -5,9 +5,6 @@
 
 **Phase:** Phase 1 — Current Prototype (impact detection → countdown → GPS → SMS)
 
-**Status:** documentation audited and corrected (see `VALIDATION-REPORT.md`).
-**Hardware tests: NOT YET TESTED** — no result in this guide is a measured PASS.
-
 ---
 
 ## Documentation Index
