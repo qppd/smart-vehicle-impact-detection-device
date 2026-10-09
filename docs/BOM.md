@@ -7,7 +7,7 @@
 
 | # | Component | Qty | Verified Specs | Notes | Product Link |
 |---|-----------|-----|----------------|-------|--------------|
-| 1 | ESP32 Development Board | 1 | Generic 38-pin variant, main MCU | **TBD: exact model/pinout** | [Lazada - ESP32 30/38-pin](https://www.lazada.com.ph/products/30-pins-and-38-pins-esp32-wifi-iot-development-board-i229344573-s21305417099.html) |
+|| 1 | ESP32 38-pin Development Board with Terminal Block | 1 | Generic 38-pin variant with terminal blocks, main MCU | **TBD: exact model/pinout** | [Lazada - ESP32 38-pin Expansion Board](https://www.lazada.com.ph/products/expansion-board-for-30pin-38pin-esp32-development-board-terminal-block-type-i4540319304-s26017613003.html) |
 | 2 | MPU6050 Breakout | 1 | Soldered variant, I²C, accelerometer + gyroscope | Impact detection | [Lazada - MPU6050](https://www.lazada.com.ph/products/triple-axis-accelerometer-and-gyro-breakout-mpu6050-i309260737-s609286653.html) |
 | 3 | SIM808 Module | 1 | GSM + GPS, TTL UART, DC044/V_IN/Li-Po inputs | Antennas included | [Lazada - SIM808](https://www.lazada.com.ph/products/pdp-i141829650-s161561560.html) |
 | 4 | Grove LED — Green | 1 | Module form factor | Normal status | [Lazada - Grove LED](https://www.lazada.com.ph/products/grove-blue-red-green-purple-led-arduino-raspberry-pi-compatible-i1932813041-s8305193829.html) |
@@ -38,7 +38,7 @@ a link is dead.
 
 ### 2.2 Detailed Component Specifications
 
-#### ESP32 Development Board (Generic 38-pin)
+#### ESP32 Development Board (Generic 38-pin Development Board with Terminal Block)
 - **Architecture:** ESP32-D0WDQ6 (dual-core) or similar
 - **Flash:** 4 MB typical
 - **USB-to-UART:** CP2102 / CH340 / CH9102 — **TBD: verify actual chip**

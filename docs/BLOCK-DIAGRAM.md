@@ -12,7 +12,7 @@ graph TB
     end
 
     subgraph MCU["MCU"]
-        ESP32["ESP32 Development Board<br/>Main MCU"]
+        ESP32["ESP32 38-pin Development Board with Terminal Block<br/>Main MCU"]
     end
 
     subgraph COMM["COMMUNICATION"]

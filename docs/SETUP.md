@@ -298,7 +298,7 @@ Required considerations:
 
 | Component | Approx. Size (mm) | Notes |
 |-----------|-------------------|-------|
-| ESP32 Dev Board | 55 × 28 × 15 | With USB and headers |
+| ESP32 Dev Board with Terminal Block | 55 × 28 × 15 | With USB and headers |
 | MPU6050 Breakout | 20 × 15 × 5 | Small, can be mounted anywhere |
 | SIM808 Module | 50 × 30 × 10 | With pins, needs antenna connectors |
 | SIM808 GPS Antenna | 25 × 25 × 8 | Ceramic patch, cable ~100mm |
@@ -347,7 +347,7 @@ Using bottom-left of internal space as origin (0,0), dimensions in mm:
 
 | Component | X (mm) | Y (mm) | Z/Height | Mounting Method |
 |-----------|--------|--------|----------|-----------------|
-| ESP32 | 50 | 50 | 15 | Standoffs (3mm) + screws |
+| ESP32 with Terminal Block | 50 | 50 | 15 | Standoffs (3mm) + screws |
 | MPU6050 | 60 | 70 | 5 | Double-sided tape on ESP32 or separate standoffs |
 | SIM808 | 110 | 50 | 10 | Standoffs (3mm) + screws |
 | GPS Antenna | 75 | 80 | 8 | Adhesive on lid (top center) |
@@ -365,7 +365,7 @@ Using bottom-left of internal space as origin (0,0), dimensions in mm:
 #### 14.5 Mounting Hole Pattern
 
 **Internal standoffs (M3, 10mm height):**
-- ESP32: 4 holes matching board (typically 2.54mm pitch, ~48×25mm)
+- ESP32 with Terminal Block: 4 holes matching board (typically 2.54mm pitch, ~48×25mm)
 - SIM808: 2-4 holes matching module
 - Boost Converter: 2-4 holes
 - TP4056: 2 holes
@@ -683,7 +683,7 @@ Show the physical prototype:
 6. **GSM antenna** (side of enclosure)
 7. **USB-C ports** (ESP32 programming + TP4056 charging)
 8. **Internal components:**
-   - ESP32 38-pin dev board
+   - ESP32 38-pin Development Board with Terminal Block
    - MPU6050 breakout
    - SIM808 module
    - Boost converter
@@ -754,7 +754,7 @@ confirmed with the test procedures in TESTING.md before it is presented as worki
 
 | # | Component | Verified | Notes |
 |---|-----------|----------|-------|
-| H1 | ESP32 38-pin Dev Board | ☐ | Model: __________ |
+| H1 | ESP32 38-pin Development Board with Terminal Block | ☐ | Model: __________ |
 | H2 | MPU6050 Breakout (soldered) | ☐ | I²C address 0x68 |
 | H3 | SIM808 Module + Antennas | ☐ | GPS + GSM antennas |
 | H4 | Grove LED Green | ☐ | Panel mounted |

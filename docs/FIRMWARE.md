@@ -12,7 +12,7 @@ Copy the following into your Arduino IDE project. All code is in a single file f
   IoT-Based Vehicle Impact Detection System
   Phase 1 — Impact Detection → 15s Countdown → GPS → SMS
   
-  Hardware: ESP32 38-pin, MPU6050, SIM808, Grove LEDs, Buzzer
+  Hardware: ESP32 38-pin Development Board with Terminal Block, MPU6050, SIM808, Grove LEDs, Buzzer
   
   Author: Senior Embedded Systems Engineer
   Version: 1.0

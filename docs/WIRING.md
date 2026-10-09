@@ -18,7 +18,7 @@
 
 ```mermaid
 graph LR
-    ESP32["ESP32 38-pin"]
+    ESP32["ESP32 38-pin Development Board with Terminal Block"]
     MPU6050["MPU6050"]
     SIM808["SIM808"]
     GREEN["Green LED"]
@@ -51,7 +51,7 @@ graph LR
 | **Buzzer** | Signal | GPIO25 | Output — active buzzer (HIGH = tone) |
 | **Main Switch** | Power | N/A | Hardware switch on main positive line |
 
-**[WARNING] VERIFY:** These GPIO numbers are for a generic ESP32 38-pin board. You MUST verify the exact pinout of your ESP32 board before finalizing connections.
+**[WARNING] VERIFY:** These GPIO numbers are for a generic ESP32 38-pin Development Board with Terminal Block. You MUST verify the exact pinout of your ESP32 board before finalizing connections.
 
 **[WARNING] WROVER WARNING:** If your ESP32 module is WROVER (has PSRAM), GPIO16 and GPIO17 are internally bonded to the PSRAM chip and NOT available externally. Use alternate UART2 pins (e.g., GPIO25/26) or switch to a WROOM module.
 

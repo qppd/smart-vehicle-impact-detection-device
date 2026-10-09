@@ -87,7 +87,7 @@ graph TB
 
 | Layer | Technology | Notes |
 |-------|-----------|-------|
-| MCU | ESP32 (Xtensa dual-core, 240 MHz) | FPU available |
+| MCU | ESP32 38-pin Development Board with Terminal Block (Xtensa dual-core, 240 MHz) | FPU available |
 | I²C | Wire.h (400 kHz) | MPU6050 on GPIO21/22 |
 | UART | HardwareSerial (UART2, GPIO16/17) | SIM808 at 115200 bps |
 | GPIO | digitalWrite/read | LEDs, buzzer |
